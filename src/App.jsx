@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import BottomNav from './components/BottomNav';
-import FloatingSOS from './components/FloatingSOS';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import MapPage from './pages/MapPage';
@@ -12,6 +11,12 @@ import HikingHistoryPage from './pages/HikingHistoryPage';
 import ProfilePage from './pages/ProfilePage';
 import MedicalIDPage from './pages/MedicalIDPage';
 import SettingsPage from './pages/SettingsPage';
+
+// New Pages
+import GlobalStatusBar from './components/GlobalStatusBar';
+import TrailsPage from './pages/TrailsPage';
+import NightModePage from './pages/NightModePage';
+import WarningsPage from './pages/WarningsPage';
 
 function ProtectedRoute({ children }) {
   const { user } = useApp();
@@ -24,15 +29,25 @@ function AppLayout() {
 
   return (
     <div className="app-layout">
+      {user && <GlobalStatusBar />}
       <Routes>
         <Route path="/login" element={
           user ? <Navigate to="/" replace /> : <LoginPage />
         } />
         <Route path="/" element={
+          <ProtectedRoute><TrailsPage /></ProtectedRoute>
+        } />
+        <Route path="/dashboard" element={
           <ProtectedRoute><DashboardPage /></ProtectedRoute>
         } />
         <Route path="/map" element={
           <ProtectedRoute><MapPage /></ProtectedRoute>
+        } />
+        <Route path="/stars" element={
+          <ProtectedRoute><NightModePage /></ProtectedRoute>
+        } />
+        <Route path="/warnings" element={
+          <ProtectedRoute><WarningsPage /></ProtectedRoute>
         } />
         <Route path="/sos" element={
           <ProtectedRoute><SOSPage /></ProtectedRoute>
@@ -57,7 +72,6 @@ function AppLayout() {
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {user && <FloatingSOS />}
       {user && <BottomNav />}
     </div>
   );

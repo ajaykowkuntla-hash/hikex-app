@@ -1,101 +1,96 @@
-import { useApp } from '../context/AppContext';
+import { ArrowLeft, Clock, MapPin, Mountain, Heart, Activity, Flame, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getHikingHistory } from '../services/demoData';
-import { 
-  Clock, MapPin, Mountain, Heart, Activity,
-  Flame, ChevronRight, History
-} from 'lucide-react';
 
 export default function HikingHistoryPage() {
+  const navigate = useNavigate();
   const hikes = getHikingHistory();
 
   return (
     <div className="page-container">
-      <div className="page-header animate-in">
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <History size={24} />
-          Hiking History
-        </h1>
-        <span className="badge badge-demo" style={{ background: 'var(--accent-blue-bg)', color: 'var(--accent-blue)' }}>
-          {hikes.length} hikes
-        </span>
-      </div>
+      <header className="mb-6 flex justify-between items-center animate-in stagger-1">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <ArrowLeft size={24} className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity" onClick={() => navigate(-1)} />
+          <h1 className="display-text text-2xl font-bold tracking-tight" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <History size={24} /> Hiking History
+          </h1>
+        </div>
+        <div style={{ padding: '6px 12px', background: 'rgba(34, 211, 238, 0.1)', border: '1px solid var(--accent-primary)', borderRadius: 'var(--radius-full)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          {hikes.length} Records
+        </div>
+      </header>
 
       {/* Summary Stats */}
-      <div className="sensor-grid animate-in stagger-1 mb-md">
-        <div className="sensor-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-blue)' }}>68.5</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total km</div>
+      <div className="sensor-grid animate-in stagger-2" style={{ marginBottom: '24px' }}>
+        <div className="sensor-card text-center" style={{ padding: '24px 16px' }}>
+          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-primary)]">68.5</div>
+          <div className="text-xs text-muted uppercase tracking-widest font-semibold">Total km</div>
         </div>
-        <div className="sensor-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-green)' }}>35h</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total Time</div>
+        <div className="sensor-card text-center" style={{ padding: '24px 16px' }}>
+          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-emerald)]">35h</div>
+          <div className="text-xs text-muted uppercase tracking-widest font-semibold">Total Time</div>
         </div>
       </div>
 
-      {/* Hike Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Hike Records */}
+      <div className="animate-in stagger-3" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {hikes.map((hike, idx) => (
-          <div className={`hike-card animate-in stagger-${Math.min(idx + 2, 5)}`} key={hike.id} id={`hike-${hike.id}`}>
-            <div className="hike-header">
+          <div key={hike.id} className="glass-panel" style={{ padding: '20px', animationDelay: `${(idx + 1) * 100}ms` }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
               <div>
-                <h3 style={{ fontSize: '1rem', marginBottom: '4px' }}>{hike.name}</h3>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <MapPin size={12} />
-                  {hike.route}
+                <h3 className="font-display font-bold text-lg text-white">{hike.name}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
+                  <MapPin size={14} /> {hike.route}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold' }}>
                   {new Date(hike.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
-              <span className="badge badge-connected" style={{ fontSize: '0.6875rem' }}>
-                {hike.status === 'completed' ? '✓ Completed' : 'In Progress'}
-              </span>
-            </div>
-
-            <div className="hike-stats">
-              <div className="hike-stat">
-                <div className="hike-stat-value" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  <Clock size={12} color="var(--accent-blue)" />
-                  {hike.duration}
-                </div>
-                <div className="hike-stat-label">Duration</div>
-              </div>
-              <div className="hike-stat">
-                <div className="hike-stat-value" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  <MapPin size={12} color="var(--accent-green)" />
-                  {hike.distance}
-                </div>
-                <div className="hike-stat-label">Distance</div>
-              </div>
-              <div className="hike-stat">
-                <div className="hike-stat-value" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  <Mountain size={12} color="var(--accent-orange)" />
-                  {hike.elevation}
-                </div>
-                <div className="hike-stat-label">Elevation</div>
+              <div style={{ padding: '4px 8px', background: hike.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${hike.status === 'completed' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`, borderRadius: '6px', color: hike.status === 'completed' ? 'var(--accent-emerald)' : 'var(--accent-amber)', fontSize: '0.625rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                {hike.status === 'completed' ? 'Completed' : 'In Progress'}
               </div>
             </div>
 
-            {/* Health Stats */}
-            <div style={{ display: 'flex', gap: '16px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem' }}>
-                <Heart size={14} color="var(--accent-red)" />
-                <span style={{ color: 'var(--text-secondary)' }}>Avg:</span>
-                <span style={{ fontWeight: 600 }}>{hike.avgHeartRate} bpm</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--accent-primary)', fontWeight: 'bold', marginBottom: '4px', fontSize: '0.875rem' }}>
+                  <Clock size={16} /> {hike.duration}
+                </div>
+                <div className="text-[10px] text-muted tracking-widest uppercase font-bold">Duration</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem' }}>
-                <Activity size={14} color="var(--accent-blue)" />
-                <span style={{ color: 'var(--text-secondary)' }}>SpO2:</span>
-                <span style={{ fontWeight: 600 }}>{hike.avgSpO2}%</span>
+              <div style={{ width: '1px', background: 'var(--glass-border)' }}></div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--accent-emerald)', fontWeight: 'bold', marginBottom: '4px', fontSize: '0.875rem' }}>
+                  <MapPin size={16} /> {hike.distance}
+                </div>
+                <div className="text-[10px] text-muted tracking-widest uppercase font-bold">Distance</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem' }}>
-                <Flame size={14} color="var(--accent-orange)" />
-                <span style={{ fontWeight: 600 }}>{hike.calories} cal</span>
+              <div style={{ width: '1px', background: 'var(--glass-border)' }}></div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--accent-amber)', fontWeight: 'bold', marginBottom: '4px', fontSize: '0.875rem' }}>
+                  <Mountain size={16} /> {hike.elevation}
+                </div>
+                <div className="text-[10px] text-muted tracking-widest uppercase font-bold">Elevation</div>
               </div>
             </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                <Heart size={14} color="var(--accent-rose)" /> <span style={{ color: 'var(--text-secondary)' }}>AVG:</span> <span className="text-white">{hike.avgHeartRate} BPM</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                <Activity size={14} color="var(--accent-primary)" /> <span style={{ color: 'var(--text-secondary)' }}>SPO2:</span> <span className="text-white">{hike.avgSpO2}%</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                <Flame size={14} color="var(--accent-amber)" /> <span className="text-white">{hike.calories} CAL</span>
+              </div>
+            </div>
+
           </div>
         ))}
       </div>
+      
     </div>
   );
 }

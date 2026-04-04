@@ -1,182 +1,121 @@
-import { useState } from 'react';
+import { ArrowLeft, Activity, Edit3, Settings, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  User, Mail, Calendar, Mountain, Clock, MapPin,
-  Edit3, Save, ChevronRight, Heart, Shield, LogOut
-} from 'lucide-react';
 
 export default function ProfilePage() {
-  const { profile, setProfile, logout } = useApp();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ ...profile });
+  const { profile, setProfile } = useApp();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState(profile);
 
   const handleSave = () => {
     setProfile(formData);
-    setEditing(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+    setIsEditing(false);
   };
 
   return (
     <div className="page-container">
-      {/* Profile Header */}
-      <div className="profile-header animate-in">
-        <div className="profile-avatar" id="profile-avatar">
-          {profile?.name?.[0]?.toUpperCase() || 'H'}
+      <header className="mb-6 flex justify-between items-center animate-in stagger-1">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <ArrowLeft size={24} className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity" onClick={() => navigate(-1)} />
+          <h1 className="display-text text-2xl font-bold tracking-tight">Dossier</h1>
         </div>
-        {editing ? (
-          <input
-            type="text"
-            className="input-field"
+        {!isEditing ? (
+          <button className="btn btn-outline" style={{ padding: '8px 16px', borderRadius: '12px' }} onClick={() => setIsEditing(true)}>
+             <Edit3 size={16} /> Edit
+          </button>
+        ) : (
+          <button className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '12px' }} onClick={handleSave}>
+             Save
+          </button>
+        )}
+      </header>
+
+      <div className="glass-panel text-center animate-in stagger-2" style={{ marginBottom: '24px', padding: '32px 24px' }}>
+        <div style={{ position: 'relative', width: '96px', height: '96px', margin: '0 auto 16px' }}>
+          <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-primary), #0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 30px var(--accent-primary-glow)' }}>
+            <span className="font-display font-black text-4xl text-white">{formData.avatar}</span>
+          </div>
+          {isEditing && (
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <Edit3 size={14} />
+            </div>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <input 
+            className="input-field" 
+            style={{ textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, background: 'rgba(0,0,0,0.3)', marginBottom: '8px' }} 
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            style={{ textAlign: 'center', maxWidth: '250px', margin: '0 auto', fontSize: '1.25rem', fontWeight: 600 }}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
           />
         ) : (
-          <h1 style={{ marginBottom: '4px' }}>{profile?.name || 'Hiker'}</h1>
+          <h2 className="font-display font-bold text-3xl mb-1">{formData.name}</h2>
         )}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          {profile?.email || 'hiker@hikex.com'}
-        </p>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
-          Member since {profile?.memberSince || 'March 2026'}
-        </p>
+        <p className="text-xs text-muted uppercase tracking-widest font-semibold mb-4">{formData.memberSince || 'Active Operative'} • Lvl 9</p>
         
-        <button 
-          className={`btn ${editing ? 'btn-primary' : 'btn-outline'}`}
-          onClick={editing ? handleSave : () => setEditing(true)}
-          style={{ marginTop: '12px', fontSize: '0.8125rem', padding: '8px 20px' }}
-          id="profile-edit-btn"
-        >
-          {editing ? <><Save size={14} /> Save Changes</> : <><Edit3 size={14} /> Edit Profile</>}
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="profile-stats animate-in stagger-1">
-        <div className="stat-card" id="stat-hikes">
-          <div className="stat-value">{profile?.totalHikes || 12}</div>
-          <div className="stat-label">Total Hikes</div>
-        </div>
-        <div className="stat-card" id="stat-time">
-          <div className="stat-value">{profile?.totalTime || '48h'}</div>
-          <div className="stat-label">Total Time</div>
-        </div>
-        <div className="stat-card" id="stat-distance">
-          <div className="stat-value">{profile?.totalDistance || '92.5'}</div>
-          <div className="stat-label">Distance (km)</div>
+        <div style={{ display: 'flex', borderTop: '1px solid var(--glass-border)', paddingTop: '16px', gap: '8px' }}>
+           <div style={{ flex: 1 }}>
+              <div className="font-display font-bold text-xl text-white">8.4k</div>
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold">Reputation</div>
+           </div>
+           <div style={{ width: '1px', background: 'var(--glass-border)' }}></div>
+           <div style={{ flex: 1 }}>
+              <div className="font-display font-bold text-xl text-[var(--accent-primary)]">{formData?.totalHikes || '12'}</div>
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold">Expeditions</div>
+           </div>
+           <div style={{ width: '1px', background: 'var(--glass-border)' }}></div>
+           <div style={{ flex: 1 }}>
+              <div className="font-display font-bold text-xl text-[var(--accent-emerald)]">{formData?.totalDistance || '92k'}</div>
+              <div className="text-[10px] text-muted uppercase tracking-widest font-bold">Dist (km)</div>
+           </div>
         </div>
       </div>
 
-      {/* Profile Details */}
-      <div className="card mt-lg animate-in stagger-2" style={{ padding: '4px 16px' }}>
-        <div className="flex-between" style={{ padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <User size={18} color="var(--accent-blue)" />
-            <span style={{ fontSize: '0.9375rem' }}>Full Name</span>
+      <div className="animate-in stagger-4">
+        <h3 className="text-xs text-muted font-semibold uppercase tracking-widest mb-3 pl-1">Configuration</h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="glass-panel card-clickable" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} onClick={() => navigate('/settings')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Settings size={20} className="text-muted" />
+              </div>
+              <div>
+                <p className="font-bold text-white">System Settings</p>
+                <p className="text-xs text-muted">Theme, Audio, Account</p>
+              </div>
+            </div>
           </div>
-          {editing ? (
-            <input
-              className="input-field"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              style={{ width: '150px', textAlign: 'right', padding: '6px 10px', fontSize: '0.875rem' }}
-            />
-          ) : (
-            <span style={{ fontWeight: 500, fontSize: '0.9375rem' }}>{profile?.name}</span>
-          )}
-        </div>
-
-        <div className="flex-between" style={{ padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Mail size={18} color="var(--accent-blue)" />
-            <span style={{ fontSize: '0.9375rem' }}>Email</span>
+          
+          <div className="glass-panel card-clickable" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} onClick={() => navigate('/medical')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-rose-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Activity size={20} color="var(--accent-rose)" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Medical Identification</p>
+                <p className="text-xs text-muted">Vitals payload configuration</p>
+              </div>
+            </div>
           </div>
-          {editing ? (
-            <input
-              className="input-field"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              style={{ width: '200px', textAlign: 'right', padding: '6px 10px', fontSize: '0.875rem' }}
-            />
-          ) : (
-            <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--text-secondary)' }}>{profile?.email}</span>
-          )}
-        </div>
-
-        <div className="flex-between" style={{ padding: '14px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={18} color="var(--accent-blue)" />
-            <span style={{ fontSize: '0.9375rem' }}>Age</span>
+          
+          <div className="glass-panel card-clickable" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} onClick={() => navigate('/device')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(47, 127, 95, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Activity size={20} color="var(--accent-primary)" />
+              </div>
+              <div>
+                <p className="font-bold text-white">ESP32 Hardware Core</p>
+                <p className="text-xs text-muted">Connectivity & Live Logs</p>
+              </div>
+            </div>
           </div>
-          {editing ? (
-            <input
-              type="number"
-              className="input-field"
-              value={formData.age || 24}
-              onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-              style={{ width: '80px', textAlign: 'right', padding: '6px 10px', fontSize: '0.875rem' }}
-            />
-          ) : (
-            <span style={{ fontWeight: 500, fontSize: '0.9375rem' }}>{profile?.age || 24}</span>
-          )}
         </div>
       </div>
-
-      {/* Quick Links */}
-      <div className="card mt-md animate-in stagger-3" style={{ padding: '4px 16px' }}>
-        <div 
-          className="flex-between card-clickable" 
-          style={{ padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}
-          onClick={() => navigate('/history')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Mountain size={18} color="var(--accent-green)" />
-            <span style={{ fontSize: '0.9375rem' }}>Hiking History</span>
-          </div>
-          <ChevronRight size={18} color="var(--text-muted)" />
-        </div>
-
-        <div 
-          className="flex-between card-clickable" 
-          style={{ padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}
-          onClick={() => navigate('/medical')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Heart size={18} color="var(--accent-red)" />
-            <span style={{ fontSize: '0.9375rem' }}>Medical ID</span>
-          </div>
-          <ChevronRight size={18} color="var(--text-muted)" />
-        </div>
-
-        <div 
-          className="flex-between card-clickable" 
-          style={{ padding: '14px 0' }}
-          onClick={() => navigate('/settings')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Shield size={18} color="var(--accent-purple)" />
-            <span style={{ fontSize: '0.9375rem' }}>Privacy & Settings</span>
-          </div>
-          <ChevronRight size={18} color="var(--text-muted)" />
-        </div>
-      </div>
-
-      {/* Logout */}
-      <button 
-        className="btn btn-outline btn-full mt-lg animate-in stagger-4"
-        onClick={handleLogout}
-        id="logout-btn"
-        style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red-bg)' }}
-      >
-        <LogOut size={16} />
-        Sign Out
-      </button>
+      
     </div>
   );
 }

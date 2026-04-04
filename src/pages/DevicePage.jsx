@@ -1,169 +1,102 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Cpu, Wifi, WifiOff, Battery, Volume2, VolumeX,
-  Radio, RotateCcw, Thermometer, Heart, MapPin,
-  Activity, Gauge, Signal
-} from 'lucide-react';
-
-function getLogEntries() {
-  const now = new Date();
-  const entries = [
-    { time: -2, msg: 'System initialized. All sensors online.' },
-    { time: -15, msg: 'GPS lock acquired. 8 satellites.' },
-    { time: -30, msg: 'Heart rate sensor calibrated.' },
-    { time: -45, msg: 'IMU motion detection active.' },
-    { time: -60, msg: 'WiFi connected. Signal: -65dBm' },
-    { time: -90, msg: 'Firebase connection established.' },
-    { time: -120, msg: 'SpO2 sensor ready. IR LED ok.' },
-    { time: -180, msg: 'Temperature sensor: DHT22 detected.' },
-    { time: -240, msg: 'Human presence sensor: PIR active.' },
-    { time: -300, msg: 'Boot sequence complete. Device ID: ESP32-HKX-0127' },
-  ];
-  
-  return entries.map(e => {
-    const t = new Date(now.getTime() + e.time * 1000);
-    return {
-      time: t.toTimeString().slice(0, 8),
-      msg: e.msg
-    };
-  });
-}
+import { triggerHardwareControl } from '../services/sensorService';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Cpu, Volume2, ShieldAlert } from 'lucide-react';
 
 export default function DevicePage() {
-  const { sensorData, isConnected, setIsConnected } = useApp();
-  const [buzzerOn, setBuzzerOn] = useState(false);
-  const [beaconOn, setBeaconOn] = useState(false);
-  const [logs] = useState(getLogEntries);
+  const navigate = useNavigate();
+  const { sensorData } = useApp();
+  const isOnline = !!sensorData;
+  const [buzzerActive, setBuzzerActive] = useState(false);
+  const [logs, setLogs] = useState([]);
 
-  const battery = sensorData?.battery || 85;
-  const batteryClass = battery > 50 ? 'high' : battery > 20 ? 'medium' : 'low';
+  useEffect(() => {
+    if (sensorData?.buzzer) {
+      setBuzzerActive(sensorData.buzzer === 'On');
+    }
+  }, [sensorData]);
 
-  const sensors = [
-    { name: 'Heart Rate', icon: Heart, status: true, color: 'var(--accent-red)' },
-    { name: 'SpO2', icon: Activity, status: true, color: 'var(--accent-blue)' },
-    { name: 'Temperature', icon: Thermometer, status: true, color: 'var(--accent-orange)' },
-    { name: 'GPS', icon: MapPin, status: true, color: 'var(--accent-green)' },
-    { name: 'IMU/Motion', icon: Gauge, status: true, color: 'var(--accent-purple)' },
-    { name: 'PIR Sensor', icon: Signal, status: true, color: 'var(--accent-yellow)' },
-  ];
+  const toggleBuzzer = async () => {
+    const newState = !buzzerActive;
+    setBuzzerActive(newState);
+    
+    // Send directly to Firebase hardware control route
+    const success = await triggerHardwareControl('buzzer', newState ? 'On' : 'Off');
+    
+    addLog(success 
+      ? `Command BUZZER_${newState ? 'ON' : 'OFF'} acknowledged by ESP32` 
+      : `Failed: Hardware unresponsive`);
+  };
+
+  const addLog = (msg) => {
+    const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
+    setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 10));
+  };
 
   return (
     <div className="page-container">
-      <div className="page-header animate-in">
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Cpu size={24} />
-          Control Panel
-        </h1>
-      </div>
-
-      {/* Device Status */}
-      <div className="device-status-card animate-in stagger-1" id="device-status">
-        <div className="device-icon">
-          <Cpu size={24} />
+      <header className="mb-8 flex items-center gap-4 pt-4 animate-in stagger-1">
+        <ArrowLeft size={24} className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity" onClick={() => navigate(-1)} />
+        <h1 className="display-text text-2xl font-bold tracking-tight">Hardware Node</h1>
+      </header>
+      
+      <div className="glass-panel mb-6 animate-in stagger-2" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-10%', right: '-10%', opacity: 0.05, pointerEvents: 'none' }}>
+           <Cpu size={200} />
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '1rem' }}>ESP32-HIKEX</div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-            Device ID: ESP32-HKX-0127
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          <div>
+            <p className="text-xs text-muted mb-1 font-semibold uppercase tracking-widest">Target Connection</p>
+            <h2 className="font-display font-bold text-2xl text-[var(--accent-primary)]">ESP32 Core</h2>
+          </div>
+          <div style={{ padding: '6px 12px', borderRadius: 'var(--radius-full)', background: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)', border: `1px solid ${isOnline ? 'var(--accent-emerald)' : 'var(--accent-rose)'}`, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className={`risk-dot ${isOnline ? 'safe' : 'critical'}`} style={{ width: '8px', height: '8px' }}></div>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: isOnline ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
-        <span 
-          className={`badge ${isConnected ? 'badge-connected' : 'badge-disconnected'}`}
-          onClick={() => setIsConnected(!isConnected)}
-          style={{ cursor: 'pointer' }}
-        >
-          {isConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {isConnected ? 'Online' : 'Offline'}
-        </span>
-      </div>
-
-      {/* Battery */}
-      <div className="card animate-in stagger-2 mb-md" id="battery-indicator">
-        <div className="flex-between mb-sm">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Battery size={18} color={battery > 50 ? 'var(--accent-green)' : battery > 20 ? 'var(--accent-yellow)' : 'var(--accent-red)'} />
-            <span style={{ fontWeight: 500 }}>Battery Level</span>
+        
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
+             <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Telemetry</p>
+             <p className="font-sans font-bold text-white text-lg">{isOnline ? 'Stable' : 'Lost'}</p>
           </div>
-          <span style={{ fontWeight: 700, fontSize: '1.125rem' }}>{battery}%</span>
-        </div>
-        <div className="battery-bar">
-          <div className={`battery-fill ${batteryClass}`} style={{ width: `${battery}%` }}></div>
-        </div>
-      </div>
-
-      {/* Controls Grid */}
-      <h3 className="mb-sm animate-in stagger-2">Controls</h3>
-      <div className="control-grid animate-in stagger-3">
-        <div 
-          className={`control-card ${buzzerOn ? 'active-control' : ''}`}
-          onClick={() => setBuzzerOn(!buzzerOn)}
-          id="buzzer-toggle"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            {buzzerOn ? <Volume2 size={20} color="var(--accent-green)" /> : <VolumeX size={20} color="var(--text-muted)" />}
-          </div>
-          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Buzzer</div>
-          <div style={{ fontSize: '0.75rem', color: buzzerOn ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-            {buzzerOn ? 'Active' : 'Inactive'}
-          </div>
-        </div>
-
-        <div 
-          className={`control-card ${beaconOn ? 'active-control' : ''}`}
-          onClick={() => setBeaconOn(!beaconOn)}
-          id="beacon-toggle"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Radio size={20} color={beaconOn ? 'var(--accent-green)' : 'var(--text-muted)'} />
-          </div>
-          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Emergency Beacon</div>
-          <div style={{ fontSize: '0.75rem', color: beaconOn ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-            {beaconOn ? 'Broadcasting' : 'Off'}
+          <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
+             <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Power Level</p>
+             <p className="font-sans font-bold text-[var(--accent-emerald)] text-lg">98%</p>
           </div>
         </div>
       </div>
-
-      {/* Sensor Availability */}
-      <h3 className="mb-sm mt-md animate-in stagger-3">Sensor Status</h3>
-      <div className="card animate-in stagger-4" style={{ padding: '12px' }}>
-        {sensors.map((s, idx) => (
-          <div key={idx} className="flex-between" style={{ padding: '10px 8px', borderBottom: idx < sensors.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <s.icon size={16} color={s.color} />
-              <span style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{s.name}</span>
-            </div>
-            <span className="badge badge-connected" style={{ fontSize: '0.6875rem' }}>
-              Active
-            </span>
-          </div>
-        ))}
+      
+      <div className="glass-panel mb-6 animate-in stagger-3">
+         <h3 className="text-xs text-muted font-semibold uppercase tracking-widest mb-4">Remote Execution</h3>
+         
+         <div className="toggle-wrapper" style={{ padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: buzzerActive ? 'var(--accent-rose-glow)' : 'rgba(255,255,255,0.05)' }}>
+                <Volume2 size={20} color={buzzerActive ? 'var(--accent-rose)' : 'var(--text-secondary)'} />
+              </div>
+              <div className="toggle-label">
+                <span className="text-white text-md">Emergency Siren</span>
+                <span>Activate loud alarm remotely</span>
+              </div>
+           </div>
+           
+           <div className={`toggle ${buzzerActive ? 'active' : ''}`} onClick={toggleBuzzer}></div>
+         </div>
       </div>
 
-      {/* Calibration */}
-      <h3 className="mb-sm mt-md animate-in stagger-4">Calibration</h3>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} className="animate-in stagger-5">
-        <button className="btn btn-outline" style={{ fontSize: '0.8125rem', padding: '8px 14px' }}>
-          <RotateCcw size={14} /> Calibrate IMU
-        </button>
-        <button className="btn btn-outline" style={{ fontSize: '0.8125rem', padding: '8px 14px' }}>
-          <RotateCcw size={14} /> Reset GPS
-        </button>
-        <button className="btn btn-outline" style={{ fontSize: '0.8125rem', padding: '8px 14px' }}>
-          <RotateCcw size={14} /> SpO2 Baseline
-        </button>
+      <div className="animate-in stagger-4">
+        <h3 className="text-xs text-muted font-semibold uppercase tracking-widest mb-2 pl-1">Server Handshake Logs</h3>
+        <div style={{ background: '#000', borderRadius: '16px', padding: '16px', border: '1px solid var(--glass-border)', minHeight: '180px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {logs.length === 0 && <span style={{ opacity: 0.5, fontStyle: 'italic' }}>Listening for hardware execution events...</span>}
+          {logs.map((log, idx) => (
+             <span key={idx} style={{ color: log.includes('Failed') ? 'var(--accent-rose)' : 'var(--accent-primary)' }}>{log}</span>
+          ))}
+        </div>
       </div>
 
-      {/* System Log */}
-      <h3 className="mb-sm mt-md animate-in stagger-5">System Log</h3>
-      <div className="system-log animate-in stagger-5" id="system-log">
-        {logs.map((entry, idx) => (
-          <div className="log-entry" key={idx}>
-            <span className="log-time">[{entry.time}]</span>
-            {entry.msg}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

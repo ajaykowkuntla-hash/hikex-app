@@ -1,33 +1,31 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Map, Bell, Settings, Cpu } from 'lucide-react';
-
-const navItems = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/map', icon: Map, label: 'Map' },
-  { to: '/alerts', icon: Bell, label: 'Alerts' },
-  { to: '/device', icon: Cpu, label: 'Control' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
-];
+import { Home, Map, Moon, AlertTriangle, User } from 'lucide-react';
 
 export default function BottomNav() {
   const location = useLocation();
-
-  // Hide on login page
   if (location.pathname === '/login') return null;
 
+  const links = [
+    { to: '/', icon: Home },
+    { to: '/map', icon: Map },
+    { to: '/stars', icon: Moon },
+    { to: '/warnings', icon: AlertTriangle },
+    { to: '/profile', icon: User }
+  ];
+
   return (
-    <nav className="bottom-nav" id="bottom-navigation">
-      {navItems.map(({ to, icon: Icon, label }) => (
-        <NavLink
-          key={to}
-          to={to}
+    <nav id="bottom-navigation">
+      {links.map((link) => (
+        <NavLink 
+          key={link.to} 
+          to={link.to}
+          end={link.to === '/'}
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          id={`nav-${label.toLowerCase()}`}
         >
-          <span className="nav-icon">
-            <Icon size={20} />
-          </span>
-          {label}
+          {({ isActive }) => {
+            const Icon = link.icon;
+            return <Icon size={22} className={isActive ? 'drop-shadow-md' : 'opacity-60'} strokeWidth={isActive ? 2.5 : 2} />;
+          }}
         </NavLink>
       ))}
     </nav>

@@ -38,8 +38,11 @@ export function AppProvider({ children }) {
   });
 
   const [sensorData, setSensorData] = useState(null);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [liveHardwareData, setLiveHardwareData] = useState(null);
+  const [isDemoMode, setIsDemoMode] = useState(true); // User manual toggle
+  const [isHardwareActive, setIsHardwareActive] = useState(false); // Auto-detected from IoT stream
   const [isConnected, setIsConnected] = useState(true);
+  
   const [alerts, setAlerts] = useState(() => getDemoAlerts());
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('hikex_darkmode') === 'true';
@@ -55,6 +58,7 @@ export function AppProvider({ children }) {
   });
 
   const intervalRef = useRef(null);
+  const stalenessTimerRef = useRef(null);
 
   // Dark mode toggle
   useEffect(() => {
@@ -62,13 +66,34 @@ export function AppProvider({ children }) {
     localStorage.setItem('hikex_darkmode', darkMode);
   }, [darkMode]);
 
-  // Demo mode sensor data polling
+  // LIVE HARDWARE SUBSCRIPTION
   useEffect(() => {
-    if (isDemoMode) {
-      // Generate initial data
-      setSensorData(generateSensorData());
+    const unsubscribe = subscribeSensorData((data) => {
+      setLiveHardwareData(data);
+      setIsHardwareActive(true);
+      setIsConnected(true);
       
-      // Update every 3 seconds
+      // Reset the staleness watchdog timer every time the ESP32 pushes new data
+      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+      stalenessTimerRef.current = setTimeout(() => {
+        setIsHardwareActive(false);
+        setIsConnected(false);
+      }, 15000); // 15 seconds without data = offline
+    });
+    return () => {
+      unsubscribe();
+      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+    };
+  }, []);
+
+  // MASTER DATA ROUTER (Live vs Demo)
+  useEffect(() => {
+    // If user explicitly requests Demo Mode OR the hardware is totally offline -> use Fake Data Simulator
+    if (isDemoMode || !isHardwareActive) {
+      if (!sensorData || isHardwareActive) {
+         setSensorData(generateSensorData()); // Seed immediately
+      }
+      
       intervalRef.current = setInterval(() => {
         setSensorData(generateSensorData());
       }, 3000);
@@ -77,13 +102,12 @@ export function AppProvider({ children }) {
         if (intervalRef.current) clearInterval(intervalRef.current);
       };
     } else {
-      // Live Firebase mode
-      const unsubscribe = subscribeSensorData((data) => {
-        setSensorData(data);
-      });
-      return () => unsubscribe();
+      // Hardware is online and transmitting! Map the real payload.
+      if (liveHardwareData) {
+        setSensorData(liveHardwareData);
+      }
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, isHardwareActive, liveHardwareData]);
 
   // Persist user
   useEffect(() => {

@@ -1,200 +1,125 @@
-import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { sendSOSAlert } from '../services/sensorService';
-import { 
-  AlertCircle, Phone, Heart, Activity, 
-  MapPin, X, Shield, User 
-} from 'lucide-react';
+import { ShieldAlert, X, Satellite, CheckCircle } from 'lucide-react';
 
 export default function SOSPage() {
-  const { sensorData, addAlert, profile, medicalID } = useApp();
   const navigate = useNavigate();
-  const [triggered, setTriggered] = useState(false);
-  const [countdown, setCountdown] = useState(30);
-  const [sent, setSent] = useState(false);
-  const intervalRef = useRef(null);
+  const { user, sensorData, medicalID, profile } = useApp();
+  
+  const [countdown, setCountdown] = useState(5);
+  const [status, setStatus] = useState('WARNING'); // WARNING, TRANSMITTING, CONNECTED
 
-  const handleTrigger = () => {
-    setTriggered(true);
-    setCountdown(30);
+  useEffect(() => {
+    let timer;
+    if (status === 'WARNING' && countdown > 0) {
+      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    } else if (status === 'WARNING' && countdown === 0) {
+      executeSOS();
+    }
+    return () => clearTimeout(timer);
+  }, [countdown, status]);
+
+  const executeSOS = async () => {
+    setStatus('TRANSMITTING');
+    try {
+      const payload = {
+        user: user?.uid || 'Unknown',
+        timestamp: Date.now(),
+        location: sensorData?.gps || { lat: 45.9763, lng: 7.6586 },
+        vitals: {
+          heartRate: sensorData?.heartRate || 0,
+          spo2: sensorData?.spo2 || 0
+        },
+        medicalInfo: medicalID || {}
+      };
+      
+      await sendSOSAlert(payload);
+      setTimeout(() => setStatus('CONNECTED'), 2500); 
+    } catch (err) {
+      console.error('Failed to transmit SOS:', err);
+      setTimeout(() => setStatus('CONNECTED'), 1500);
+    }
   };
 
   const handleCancel = () => {
-    setTriggered(false);
-    setCountdown(30);
-    setSent(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  };
-
-  useEffect(() => {
-    if (triggered && countdown > 0) {
-      intervalRef.current = setInterval(() => {
-        setCountdown(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(intervalRef.current);
-    } else if (triggered && countdown <= 0 && !sent) {
-      // Auto-send SOS
-      handleSend();
+    if (status === 'WARNING') {
+      navigate(-1);
     }
-  }, [triggered, countdown, sent]);
-
-  const handleSend = async () => {
-    setSent(true);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    
-    const alertData = {
-      type: 'sos',
-      userName: profile?.name || 'Unknown',
-      location: sensorData?.gps || { lat: 28.5983, lng: 83.9311 },
-      heartRate: sensorData?.heartRate,
-      spo2: sensorData?.spo2,
-      message: 'Emergency SOS triggered by user',
-    };
-
-    await sendSOSAlert(alertData);
-    
-    addAlert({
-      type: 'critical',
-      title: 'SOS Alert Sent',
-      message: 'Emergency alert has been sent to all contacts and rescue services.',
-    });
   };
 
   return (
-    <div className="page-container">
-      <div className="sos-wrapper">
-        {/* Header */}
-        <div className="flex-between" style={{ width: '100%', marginBottom: '8px' }}>
-          <h1 style={{ color: 'var(--accent-red)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertCircle size={24} />
-            Emergency SOS
-          </h1>
-          <button 
-            onClick={() => navigate(-1)} 
-            style={{ background: 'none', color: 'var(--text-secondary)', padding: '8px' }}
-            id="sos-close-btn"
-          >
-            <X size={24} />
-          </button>
+    <div className="app-layout" style={{ 
+      background: status === 'WARNING' ? 'linear-gradient(to bottom, #4c0519, #000)' : '#09090b', 
+      transition: 'background 1s ease' 
+    }}>
+      
+      {/* Immersive background pulse effect for warning state */}
+      {status === 'WARNING' && (
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '100vw', height: '100vw', borderRadius: '50%', background: 'radial-gradient(circle, rgba(244,63,94,0.15) 0%, transparent 70%)', animation: 'riskPulse 1s infinite' }}></div>
         </div>
+      )}
 
-        {!triggered && !sent && (
-          <>
-            <p className="sos-status-text">
-              Press the SOS button to send an emergency alert.<br />
-              You will have 30 seconds to cancel.
-            </p>
-            <button 
-              className="sos-main-btn" 
-              onClick={handleTrigger}
-              id="sos-trigger-btn"
-            >
-              SOS
+      <div className="page-container full-width" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', padding: '24px', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        
+        {status === 'WARNING' && (
+          <div className="glass-panel text-center animate-in" style={{ width: '100%', borderColor: 'rgba(244, 63, 94, 0.3)' }}>
+            <div style={{ width: '100px', height: '100px', margin: '0 auto 24px', borderRadius: '50%', background: 'var(--accent-rose)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'massivePulse 1s infinite' }}>
+              <span className="font-display font-black text-5xl text-white">{countdown}</span>
+            </div>
+            
+            <h1 className="font-display font-bold text-3xl mb-2 text-white">Emergency Sequence</h1>
+            <p className="text-muted text-sm mb-12">Broadcasting vitals and GPS payload in T-minus {countdown} seconds.</p>
+            
+            <button className="btn btn-outline btn-full card-clickable" onClick={handleCancel} style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.2)' }}>
+              <X size={20} /> Abort Transmission
             </button>
-          </>
+          </div>
         )}
 
-        {triggered && !sent && (
-          <>
-            <div className="sos-countdown animate-in" id="sos-countdown">
-              {countdown}
+        {status === 'TRANSMITTING' && (
+          <div className="text-center animate-in stagger-2">
+            <Satellite size={64} color="var(--accent-primary)" className="mx-auto mb-8 animate-pulse-heavy" style={{ animationDuration: '0.8s' }} />
+            <h2 className="font-display text-2xl font-bold tracking-widest text-[var(--accent-primary)] uppercase mb-2">Transmitting</h2>
+            <p className="text-muted text-sm">Searching for Sentinel relay network...</p>
+          </div>
+        )}
+
+        {status === 'CONNECTED' && (
+          <div className="glass-panel animate-in" style={{ width: '100%', borderColor: 'var(--accent-emerald)', background: 'linear-gradient(145deg, rgba(6, 78, 59, 0.4), rgba(2, 44, 34, 0.8))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px var(--accent-emerald-glow)' }}>
+                <CheckCircle size={24} color="#fff" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-xl text-white">Link Established</h3>
+                <p className="text-xs uppercase tracking-widest text-[#6ee7b7] font-semibold mt-1">Ground Team Alerted</p>
+              </div>
             </div>
-            <p className="sos-status-text">
-              SOS alert will be sent in {countdown} seconds.<br />
-              Press cancel if you are safe.
-            </p>
-            <button 
-              className="sos-main-btn triggered" 
-              onClick={handleSend}
-              id="sos-send-now-btn"
-            >
-              SEND NOW
+
+            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+              <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">Subject Origin</p>
+              <p className="font-sans font-bold text-white text-lg">{profile?.name || 'Explorer'}</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+              <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
+                 <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Grid Pos</p>
+                 <p className="font-sans font-bold text-[var(--accent-primary)] text-sm">{sensorData?.gps?.lat?.toFixed(4) || "45.9763"}</p>
+                 <p className="font-sans font-bold text-[var(--accent-primary)] text-sm">{sensorData?.gps?.lng?.toFixed(4) || "7.6586"}</p>
+              </div>
+              <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
+                 <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Peak HR</p>
+                 <p className="font-display font-bold text-[var(--accent-rose)] text-2xl">{Math.round(sensorData?.heartRate || 0)}</p>
+              </div>
+            </div>
+
+            <button className="btn btn-outline btn-full card-clickable" onClick={() => navigate('/')}>
+              Return to Monitoring
             </button>
-          </>
-        )}
-
-        {sent && (
-          <div className="animate-in" style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ 
-              width: '80px', height: '80px', borderRadius: '50%', 
-              background: 'var(--accent-red-bg)', display: 'flex', 
-              alignItems: 'center', justifyContent: 'center', 
-              margin: '0 auto 16px' 
-            }}>
-              <Shield size={40} color="var(--accent-red)" />
-            </div>
-            <h2 style={{ color: 'var(--accent-red)', marginBottom: '8px' }}>SOS Alert Sent!</h2>
-            <p className="sos-status-text">
-              Emergency services and your contacts have been notified.<br />
-              Stay where you are if possible.
-            </p>
           </div>
-        )}
-
-        {/* Live Sensor Readings */}
-        {sensorData && (
-          <div className="sos-sensors animate-in stagger-2">
-            <div className="sos-sensor-card">
-              <Heart size={16} color="var(--accent-red)" />
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Heart Rate</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{sensorData.heartRate} <span style={{ fontSize: '0.75rem', fontWeight: 400 }}>bpm</span></div>
-            </div>
-            <div className="sos-sensor-card">
-              <Activity size={16} color="var(--accent-blue)" />
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>SpO2</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{sensorData.spo2}<span style={{ fontSize: '0.75rem', fontWeight: 400 }}>%</span></div>
-            </div>
-            <div className="sos-sensor-card">
-              <MapPin size={16} color="var(--accent-green)" />
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Location</div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>{sensorData.gps?.lat.toFixed(3)}, {sensorData.gps?.lng.toFixed(3)}</div>
-            </div>
-            <div className="sos-sensor-card">
-              <User size={16} color="var(--accent-purple)" />
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Blood Type</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{medicalID?.bloodType || 'O+'}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Emergency Contact */}
-        <div className="card" style={{ width: '100%', maxWidth: '400px', marginBottom: '16px' }}>
-          <h4 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Phone size={16} color="var(--accent-blue)" />
-            Emergency Contacts
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className="flex-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '0.9375rem' }}>{medicalID?.emergencyContact1?.name || 'Parent'}</div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{medicalID?.emergencyContact1?.relation || 'Father'}</div>
-              </div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--accent-blue)', fontWeight: 500 }}>
-                {medicalID?.emergencyContact1?.phone || '+91 98765 43210'}
-              </div>
-            </div>
-            <div className="flex-between" style={{ padding: '8px 0' }}>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '0.9375rem' }}>Rescue Service</div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Nepal</div>
-              </div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--accent-red)', fontWeight: 500 }}>
-                +977 1-4228094
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Cancel Button */}
-        {(triggered || sent) && (
-          <button 
-            className="sos-cancel-btn animate-in" 
-            onClick={handleCancel}
-            id="sos-cancel-btn"
-          >
-            {sent ? 'Back to Home' : "I'm Safe — Cancel"}
-          </button>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { db, ref, onValue, off, set, push } from './firebase';
+import { db, ref, onValue, off, set, push, get } from './firebase';
 
 // Subscribe to real-time sensor data from Firebase
 export function subscribeSensorData(callback) {
@@ -27,11 +27,36 @@ export async function sendSOSAlert(alertData) {
       type: 'sos',
       status: 'active'
     });
+    
+    // Explicitly trigger the physical hardware buzzer on the IoT device
+    await set(ref(db, 'controls/buzzer'), true);
+    
     return { success: true, id: newAlertRef.key };
   } catch (error) {
     console.error('Error sending SOS alert:', error);
     return { success: false, error: error.message };
   }
+}
+
+// Trigger specific hardware control state
+export async function triggerHardwareControl(node, state) {
+  try {
+    const controlRef = ref(db, `controls/${node}`);
+    await set(controlRef, state);
+    return { success: true };
+  } catch (error) {
+    console.error(`Error triggering ${node}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Subscribe to hardware connection status directly from Firebase
+export function subscribeDeviceStatus(callback) {
+  const statusRef = ref(db, 'deviceStatus/isOnline');
+  onValue(statusRef, (snapshot) => {
+    callback(!!snapshot.val());
+  });
+  return () => off(statusRef);
 }
 
 // Update user profile in Firebase
