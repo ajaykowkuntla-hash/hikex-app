@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Map, Moon, AlertTriangle, User } from 'lucide-react';
+import { Home, Map, Moon, AlertTriangle, User, Activity } from 'lucide-react';
 
 export default function BottomNav() {
   const location = useLocation();
@@ -7,6 +7,7 @@ export default function BottomNav() {
 
   const links = [
     { to: '/', icon: Home },
+    { to: '/dashboard', icon: Activity },
     { to: '/map', icon: Map },
     { to: '/stars', icon: Moon },
     { to: '/warnings', icon: AlertTriangle },

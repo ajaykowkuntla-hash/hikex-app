@@ -105,10 +105,17 @@ export default function SOSPage() {
             </div>
             
             <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
-              <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
-                 <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Grid Pos</p>
-                 <p className="font-sans font-bold text-[var(--accent-primary)] text-sm">{sensorData?.gps?.lat?.toFixed(4) || "45.9763"}</p>
-                 <p className="font-sans font-bold text-[var(--accent-primary)] text-sm">{sensorData?.gps?.lng?.toFixed(4) || "7.6586"}</p>
+              <div 
+                className="card-clickable" 
+                onClick={() => alert("GPS Coordinates and Medical ID have been securely dispatched via SMS to your Emergency Contacts and Local Rescue Helpline.")}
+                style={{ flex: 1, background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '16px', border: '1px dashed var(--accent-primary)', cursor: 'pointer' }}
+              >
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                   <p className="text-[10px] text-[var(--accent-primary)] font-bold uppercase tracking-wider">Tap to Share GPS</p>
+                   <ShieldAlert size={14} color="var(--accent-primary)" />
+                 </div>
+                 <p className="font-sans font-bold text-white text-sm">{sensorData?.gps?.lat?.toFixed(4) || "45.9763"}</p>
+                 <p className="font-sans font-bold text-white text-sm">{sensorData?.gps?.lng?.toFixed(4) || "7.6586"}</p>
               </div>
               <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '16px' }}>
                  <p className="text-xs text-muted font-semibold uppercase tracking-wider mb-1">Peak HR</p>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { generateSensorData, getDemoAlerts } from '../services/demoData';
 import { subscribeSensorData } from '../services/sensorService';
+import bleService from '../services/bleService';
 
 const AppContext = createContext(null);
 
@@ -31,22 +32,81 @@ const defaultMedicalID = {
   advanceDirectives: 'None'
 };
 
+// Normalize any incoming data (BLE, Firebase, or Demo) to the standard HIKEX format
+function normalizeDeviceData(raw) {
+  // If already in the new format (BLE / direct Firebase)
+  if (raw && raw.bpm !== undefined) {
+    return {
+      bpm: raw.bpm ?? 0,
+      lat: raw.lat ?? 17.385,
+      lng: raw.lng ?? 78.486,
+      battery: raw.battery ?? 100,
+      lowBattery: raw.lowBattery ?? (raw.battery != null ? raw.battery < 20 : false),
+      gpsReady: raw.gpsReady ?? true,
+      sos: raw.sos ?? false,
+      source: raw.source || 'firebase',
+      timestamp: raw.timestamp || Date.now(),
+      // Preserve any extra fields from legacy data
+      heartRate: raw.bpm ?? raw.heartRate ?? 0,
+      spo2: raw.spo2 ?? null,
+      temperature: raw.temperature ?? null,
+      humidity: raw.humidity ?? null,
+      motion: raw.motion ?? null,
+      riskLevel: raw.riskLevel ?? null,
+      elevation: raw.elevation ?? null,
+      gps: raw.gps ?? { lat: raw.lat ?? 17.385, lng: raw.lng ?? 78.486 },
+    };
+  }
+
+  // Legacy format from demoData / old Firebase structure
+  if (raw && raw.heartRate !== undefined) {
+    return {
+      bpm: raw.heartRate,
+      lat: raw.gps?.lat ?? 17.385,
+      lng: raw.gps?.lng ?? 78.486,
+      battery: raw.battery ?? 100,
+      lowBattery: raw.battery != null ? raw.battery < 20 : false,
+      gpsReady: true,
+      sos: false,
+      source: 'demo',
+      timestamp: raw.timestamp || Date.now(),
+      heartRate: raw.heartRate,
+      spo2: raw.spo2,
+      temperature: raw.temperature,
+      humidity: raw.humidity,
+      motion: raw.motion,
+      riskLevel: raw.riskLevel,
+      elevation: raw.elevation,
+      gps: raw.gps,
+    };
+  }
+
+  return null;
+}
+
 export function AppProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('hikex_user');
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [sensorData, setSensorData] = useState(null);
-  const [liveHardwareData, setLiveHardwareData] = useState(null);
-  const [isDemoMode, setIsDemoMode] = useState(true); // User manual toggle
-  const [isHardwareActive, setIsHardwareActive] = useState(false); // Auto-detected from IoT stream
-  const [isConnected, setIsConnected] = useState(true);
-  
-  const [alerts, setAlerts] = useState(() => getDemoAlerts());
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('hikex_darkmode') === 'true';
+  // ===== UNIFIED DEVICE DATA =====
+  const [deviceData, setDeviceData] = useState({
+    bpm: 0, lat: 17.385, lng: 78.486, battery: 100,
+    lowBattery: false, gpsReady: false, sos: false,
+    source: 'none', timestamp: 0,
   });
+
+  // Legacy sensorData — kept for backward compat with existing pages
+  const [sensorData, setSensorData] = useState(null);
+
+  const [bleStatus, setBleStatus] = useState('disconnected'); // scanning, connecting, connected, disconnected, error, reconnecting
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+
+  const [alerts, setAlerts] = useState(() => getDemoAlerts());
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('hikex_darkmode') === 'true');
   const [notifications, setNotifications] = useState(true);
   const [medicalID, setMedicalID] = useState(() => {
     const saved = localStorage.getItem('hikex_medical');
@@ -57,76 +117,128 @@ export function AppProvider({ children }) {
     return saved ? JSON.parse(saved) : defaultUser;
   });
 
-  const intervalRef = useRef(null);
+  const demoIntervalRef = useRef(null);
   const stalenessTimerRef = useRef(null);
 
-  // Dark mode toggle
+  // ===== BLE INTEGRATION =====
+  const connectBLE = useCallback(async () => {
+    try {
+      const result = await bleService.connect();
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }, []);
+
+  const disconnectBLE = useCallback(() => {
+    bleService.disconnect();
+  }, []);
+
+  // BLE status listener
+  useEffect(() => {
+    const unsub = bleService.onStatusChange((status) => {
+      setBleStatus(status);
+      if (status === 'connected') {
+        setIsConnected(true);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // BLE data listener — highest priority
+  useEffect(() => {
+    const unsub = bleService.onData((data) => {
+      const normalized = normalizeDeviceData(data);
+      if (normalized) {
+        setDeviceData(normalized);
+        setSensorData(normalized);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // ===== FIREBASE INTEGRATION — background sync =====
+  useEffect(() => {
+    const unsubscribe = subscribeSensorData((data) => {
+      setFirebaseConnected(true);
+      setIsConnected(true);
+
+      // Only use Firebase data if BLE is NOT connected (BLE has priority)
+      if (bleStatus !== 'connected') {
+        const normalized = normalizeDeviceData(data);
+        if (normalized) {
+          normalized.source = 'firebase';
+          setDeviceData(normalized);
+          setSensorData(normalized);
+        }
+      }
+
+      // Reset staleness timer
+      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+      stalenessTimerRef.current = setTimeout(() => {
+        if (bleStatus !== 'connected') {
+          setFirebaseConnected(false);
+          setIsConnected(false);
+        }
+      }, 15000);
+    });
+
+    return () => {
+      unsubscribe();
+      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+    };
+  }, [bleStatus]);
+
+  // ===== DEMO MODE FALLBACK — only when nothing is live =====
+  useEffect(() => {
+    if (isDemoMode && bleStatus !== 'connected' && !firebaseConnected) {
+      setSensorData(generateSensorData()); // Seed
+      const normalized = normalizeDeviceData(generateSensorData());
+      if (normalized) setDeviceData(normalized);
+
+      demoIntervalRef.current = setInterval(() => {
+        const demoData = generateSensorData();
+        setSensorData(demoData);
+        const norm = normalizeDeviceData(demoData);
+        if (norm) setDeviceData(norm);
+      }, 3000);
+
+      return () => {
+        if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+      };
+    } else {
+      // Stop demo when live source is active
+      if (demoIntervalRef.current) {
+        clearInterval(demoIntervalRef.current);
+        demoIntervalRef.current = null;
+      }
+    }
+  }, [isDemoMode, bleStatus, firebaseConnected]);
+
+  // ===== SOS DETECTION =====
+  useEffect(() => {
+    if (deviceData.sos) {
+      addAlert({
+        type: 'critical',
+        title: '🚨 EMERGENCY SOS ACTIVATED',
+        message: `SOS triggered at ${deviceData.lat.toFixed(4)}, ${deviceData.lng.toFixed(4)}. Contacting emergency services.`,
+      });
+    }
+  }, [deviceData.sos]);
+
+  // ===== PERSISTENCE =====
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
     localStorage.setItem('hikex_darkmode', darkMode);
   }, [darkMode]);
 
-  // LIVE HARDWARE SUBSCRIPTION
   useEffect(() => {
-    const unsubscribe = subscribeSensorData((data) => {
-      setLiveHardwareData(data);
-      setIsHardwareActive(true);
-      setIsConnected(true);
-      
-      // Reset the staleness watchdog timer every time the ESP32 pushes new data
-      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
-      stalenessTimerRef.current = setTimeout(() => {
-        setIsHardwareActive(false);
-        setIsConnected(false);
-      }, 15000); // 15 seconds without data = offline
-    });
-    return () => {
-      unsubscribe();
-      if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
-    };
-  }, []);
-
-  // MASTER DATA ROUTER (Live vs Demo)
-  useEffect(() => {
-    // If user explicitly requests Demo Mode OR the hardware is totally offline -> use Fake Data Simulator
-    if (isDemoMode || !isHardwareActive) {
-      if (!sensorData || isHardwareActive) {
-         setSensorData(generateSensorData()); // Seed immediately
-      }
-      
-      intervalRef.current = setInterval(() => {
-        setSensorData(generateSensorData());
-      }, 3000);
-
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    } else {
-      // Hardware is online and transmitting! Map the real payload.
-      if (liveHardwareData) {
-        setSensorData(liveHardwareData);
-      }
-    }
-  }, [isDemoMode, isHardwareActive, liveHardwareData]);
-
-  // Persist user
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('hikex_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('hikex_user');
-    }
+    if (user) localStorage.setItem('hikex_user', JSON.stringify(user));
+    else localStorage.removeItem('hikex_user');
   }, [user]);
 
-  // Persist medical ID
-  useEffect(() => {
-    localStorage.setItem('hikex_medical', JSON.stringify(medicalID));
-  }, [medicalID]);
-
-  // Persist profile
-  useEffect(() => {
-    localStorage.setItem('hikex_profile', JSON.stringify(profile));
-  }, [profile]);
+  useEffect(() => { localStorage.setItem('hikex_medical', JSON.stringify(medicalID)); }, [medicalID]);
+  useEffect(() => { localStorage.setItem('hikex_profile', JSON.stringify(profile)); }, [profile]);
 
   const login = useCallback((userData) => {
     const newUser = { ...defaultUser, ...userData };
@@ -143,27 +255,28 @@ export function AppProvider({ children }) {
     setAlerts(prev => [{ ...alert, id: Date.now(), timestamp: Date.now() }, ...prev]);
   }, []);
 
+  const clearWarning = useCallback(() => {
+    setDeviceData(prev => ({ ...prev, sos: false, lowBattery: false }));
+  }, []);
+
   const value = {
-    user,
-    setUser,
-    login,
-    logout,
+    user, setUser, login, logout,
+    // New unified device data
+    deviceData,
+    bleStatus,
+    firebaseConnected,
+    connectBLE,
+    disconnectBLE,
+    clearWarning,
+    // Legacy compat
     sensorData,
-    isDemoMode,
-    setIsDemoMode,
-    isConnected,
-    setIsConnected,
-    alerts,
-    setAlerts,
-    addAlert,
-    darkMode,
-    setDarkMode,
-    notifications,
-    setNotifications,
-    medicalID,
-    setMedicalID,
-    profile,
-    setProfile,
+    isDemoMode, setIsDemoMode,
+    isConnected, setIsConnected,
+    alerts, setAlerts, addAlert,
+    darkMode, setDarkMode,
+    notifications, setNotifications,
+    medicalID, setMedicalID,
+    profile, setProfile,
   };
 
   return (

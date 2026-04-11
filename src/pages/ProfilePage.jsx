@@ -108,8 +108,8 @@ export default function ProfilePage() {
                 <Activity size={20} color="var(--accent-primary)" />
               </div>
               <div>
-                <p className="font-bold text-white">ESP32 Hardware Core</p>
-                <p className="text-xs text-muted">Connectivity & Live Logs</p>
+                <p className="font-bold text-white">Device Management</p>
+                <p className="text-xs text-muted">ESP32 Hardware Core & Logs</p>
               </div>
             </div>
           </div>

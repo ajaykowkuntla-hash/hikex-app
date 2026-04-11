@@ -5,10 +5,24 @@ import { useNavigate } from 'react-router-dom';
 export default function NightModePage() {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
+  const videoRef = useRef(null);
   const [heading, setHeading] = useState(0);
   const [activeStar, setActiveStar] = useState(null);
 
   useEffect(() => {
+    // Request AR Camera Feed
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        })
+        .catch(err => {
+          console.error("Camera access denied or unavailable:", err);
+        });
+    }
+
     // Generate Stars on Canvas
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -102,11 +116,21 @@ export default function NightModePage() {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       clearInterval(interval);
+      if (videoRef.current && videoRef.current.srcObject) {
+         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: 'radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%)', overflow: 'hidden' }}>
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        muted 
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1, filter: 'opacity(0.8) brightness(0.6)' }} 
+      />
       <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
       
       <div style={{ position: 'absolute', top: '40px', left: '20px', right: '20px', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
