@@ -1,11 +1,10 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Trash2, AlertTriangle, ShieldAlert, HeartPulse, Activity } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+
 
 export default function WarningsPage() {
   const { alerts, setAlerts } = useApp();
-  const navigate = useNavigate();
 
   const handleClear = () => {
     if (window.confirm('CRITICAL ACTION: Are you sure you want to clear all telemetry warnings? This cannot be undone.')) {
@@ -49,8 +48,8 @@ export default function WarningsPage() {
         </div>
       ) : (
         <div className="animate-in stagger-2" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {alerts.map((alert, idx) => (
-            <div key={idx} className="glass-panel card-clickable" style={{ padding: '16px', display: 'flex', gap: '16px', alignItems: 'center', borderLeft: alert.type === 'critical' ? '4px solid var(--accent-rose)' : '4px solid var(--accent-amber)' }}>
+          {alerts.map((alert) => (
+            <div key={alert.id} className="glass-panel card-clickable" style={{ padding: '16px', display: 'flex', gap: '16px', alignItems: 'center', borderLeft: alert.type === 'critical' ? '4px solid var(--accent-rose)' : '4px solid var(--accent-amber)' }}>
                
                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                  {getIconForType(alert.message || alert.title)}
@@ -60,7 +59,7 @@ export default function WarningsPage() {
                  <h4 className="text-white font-display font-bold text-lg" style={{ lineHeight: 1.2 }}>{alert.title || "Anomaly Detected"}</h4>
                  <p className="text-muted text-sm" style={{ marginTop: '4px' }}>{alert.message}</p>
                  <span className="text-xs font-bold" style={{ color: alert.type === 'critical' ? 'var(--accent-rose)' : 'var(--accent-amber)', textTransform: 'uppercase', marginTop: '8px', display: 'block', letterSpacing: '0.1em' }}>
-                   {alert.time || "JUST NOW"} • TACTICAL LOG
+                   {alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'UNKNOWN'} • TACTICAL LOG
                  </span>
                </div>
 

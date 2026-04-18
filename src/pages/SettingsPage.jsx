@@ -1,19 +1,25 @@
 import { ArrowLeft, Settings as SettingsIcon, LogOut, Sliders, Shield, Database } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { isDemoMode, setIsDemoMode, logout } = useApp();
+  const { isDemoMode, setIsDemoMode, logout, darkMode, setDarkMode, notifications, setNotifications } = useApp();
   
   // Settings States
-  const [notifications, setNotifications] = useState(true);
-  const [offlineMap, setOfflineMap] = useState(false);
-  const [metricUnits, setMetricUnits] = useState(true);
-  const [shareLocation, setShareLocation] = useState(true);
-  const [broadcastMedical, setBroadcastMedical] = useState(true);
-  const [lowPowerMode, setLowPowerMode] = useState(false);
+  const [offlineMap, setOfflineMap] = useState(() => localStorage.getItem('hikex_offlineMap') === 'true');
+  const [metricUnits, setMetricUnits] = useState(() => localStorage.getItem('hikex_metricUnits') !== 'false');
+  const [shareLocation, setShareLocation] = useState(() => localStorage.getItem('hikex_shareLocation') !== 'false');
+  const [broadcastMedical, setBroadcastMedical] = useState(() => localStorage.getItem('hikex_broadcastMedical') !== 'false');
+  const [lowPowerMode, setLowPowerMode] = useState(() => localStorage.getItem('hikex_lowPowerMode') === 'true');
+
+  useEffect(() => localStorage.setItem('hikex_notifications', notifications), [notifications]);
+  useEffect(() => localStorage.setItem('hikex_offlineMap', offlineMap), [offlineMap]);
+  useEffect(() => localStorage.setItem('hikex_metricUnits', metricUnits), [metricUnits]);
+  useEffect(() => localStorage.setItem('hikex_shareLocation', shareLocation), [shareLocation]);
+  useEffect(() => localStorage.setItem('hikex_broadcastMedical', broadcastMedical), [broadcastMedical]);
+  useEffect(() => localStorage.setItem('hikex_lowPowerMode', lowPowerMode), [lowPowerMode]);
 
   return (
     <div className="page-container">
@@ -52,6 +58,14 @@ export default function SettingsPage() {
         </div>
         
         <div className="toggle-wrapper" style={{ borderTop: '1px solid var(--glass-border)' }}>
+          <div className="toggle-label">
+            <span className="text-white text-sm">Dark Mode</span>
+            <span>Use dark theme throughout the app</span>
+          </div>
+          <div className={`toggle ${darkMode ? 'active' : ''}`} onClick={() => setDarkMode(!darkMode)} />
+        </div>
+
+        <div className="toggle-wrapper">
           <div className="toggle-label">
             <span className="text-white text-sm">Critical Push Notifications</span>
             <span>Receive alerts for high HR and drops</span>

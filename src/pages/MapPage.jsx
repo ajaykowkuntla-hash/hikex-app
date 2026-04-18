@@ -3,6 +3,8 @@ import { ArrowLeft, Compass, Mountain, Box, Square, PlayCircle, FolderOpen, Navi
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { haversineDistance, routeDistance, nearestPointOnRoute, calcBearing, distanceRemaining, formatDuration, formatKm, startGPSTracking } from '../utils/geoUtils';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 export default function MapPage() {
   const navigate = useNavigate();
@@ -172,23 +174,29 @@ export default function MapPage() {
     const startEl = document.createElement('div');
     startEl.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:#10b981;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(16,185,129,0.5);font-size:12px;font-weight:bold;color:#fff;">A</div>`;
     routeMarkersRef.current.push(
-      new window.maplibregl.Marker({ element: startEl }).setLngLat(points[0]).addTo(map)
+      new maplibregl.Marker({ element: startEl }).setLngLat(points[0]).addTo(map)
     );
 
     // End marker
     const endEl = document.createElement('div');
     endEl.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:#ef4444;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(239,68,68,0.5);font-size:12px;font-weight:bold;color:#fff;">B</div>`;
     routeMarkersRef.current.push(
-      new window.maplibregl.Marker({ element: endEl }).setLngLat(points[points.length - 1]).addTo(map)
+      new maplibregl.Marker({ element: endEl }).setLngLat(points[points.length - 1]).addTo(map)
     );
 
     // Fit bounds
     const bounds = points.reduce(
       (b, c) => b.extend(c),
-      new window.maplibregl.LngLatBounds(points[0], points[0])
+      new maplibregl.LngLatBounds(points[0], points[0])
     );
     map.fitBounds(bounds, { padding: 80, duration: 1500, pitch: is3D ? 50 : 0 });
   }, [is3D]);
+
+  const stopTrek = useCallback(() => {
+    if (gpsTrackerRef.current) gpsTrackerRef.current.stop();
+    gpsTrackerRef.current = null;
+    setIsTrekking(false);
+  }, []);
 
   // Start REAL GPS navigation — marker moves only with actual user movement
   const startTrek = useCallback(() => {
@@ -276,20 +284,14 @@ export default function MapPage() {
     gpsTrackerRef.current = tracker;
   }, [gpxRoute]);
 
-  const stopTrek = useCallback(() => {
-    if (gpsTrackerRef.current) gpsTrackerRef.current.stop();
-    gpsTrackerRef.current = null;
-    setIsTrekking(false);
-  }, []);
-
   // Initialize MapLibre
   useEffect(() => {
-    if (!mapContainer.current || !window.maplibregl) return;
+    if (!mapContainer.current || !maplibregl) return;
     if (mapInstance.current) return;
 
     const defaultRoute = [[76.3191, 32.2423],[76.3200, 32.2438],[76.3210, 32.2453],[76.3220, 32.2468],[76.3230, 32.2483],[76.3240, 32.2498]];
 
-    const map = new window.maplibregl.Map({
+    const map = new maplibregl.Map({
       container: mapContainer.current,
       style: {
         version: 8,
@@ -318,7 +320,7 @@ export default function MapPage() {
     map.on('load', () => {
       const youEl = document.createElement('div');
       youEl.innerHTML = `<div style="width:16px;height:16px;background:#3b82f6;border-radius:50%;border:3px solid #fff;box-shadow:0 0 16px 4px rgba(59,130,246,0.5);"></div>`;
-      userMarkerRef.current = new window.maplibregl.Marker({ element: youEl })
+      userMarkerRef.current = new maplibregl.Marker({ element: youEl })
         .setLngLat([userPosition.lng, userPosition.lat])
         .addTo(map);
 
@@ -339,6 +341,13 @@ export default function MapPage() {
       if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
     };
   }, []);
+
+  // GOAL #8 - Plot GPS location as marker + Update marker in real-time
+  useEffect(() => {
+    if (userMarkerRef.current && deviceData?.lat && deviceData?.lng && !isTrekking) {
+      userMarkerRef.current.setLngLat([deviceData.lng, deviceData.lat]);
+    }
+  }, [deviceData.lat, deviceData.lng, isTrekking]);
 
   useEffect(() => {
      if (typeof window !== 'undefined') {

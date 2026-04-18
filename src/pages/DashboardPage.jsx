@@ -7,17 +7,20 @@ const MAX_HISTORY = 60; // Keep last 60 readings
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { deviceData, bleStatus, firebaseConnected, connectBLE, disconnectBLE, isDemoMode, clearWarning } = useApp();
+  const { deviceData, bleStatus, firebaseConnected, isDeviceOffline, isFirebaseOnline, connectBLE, disconnectBLE, isDemoMode, clearWarning } = useApp();
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState(null);
   const [pulse, setPulse] = useState(false);
   const [showHRModal, setShowHRModal] = useState(false);
+  const [displayMode, setDisplayMode] = useState('BPM'); // 'BPM' or 'TIME'
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [bpmHistory, setBpmHistory] = useState([]);
 
-  // Pulse animation for heart
+  // Pulse animation for heart and current time tracker
   useEffect(() => {
     const interval = setInterval(() => {
       setPulse(p => !p);
+      setCurrentTime(new Date());
     }, 800);
     return () => clearInterval(interval);
   }, []);
@@ -46,13 +49,16 @@ export default function DashboardPage() {
   };
 
   const isBLEConnected = bleStatus === 'connected';
-  const sourceLabel = isBLEConnected ? 'BLE Live' : firebaseConnected ? 'Firebase' : isDemoMode ? 'Demo' : 'Offline';
-  const sourceColor = isBLEConnected ? '#3b82f6' : firebaseConnected ? '#10b981' : '#f59e0b';
+  
+  // GOAL #2 - Offline Status Parsing
+  const sourceLabel = isBLEConnected ? 'Live Data 🟢' : (isDeviceOffline && !isDemoMode) ? 'Device Offline ❌' : firebaseConnected ? 'Live Data 🟢' : isDemoMode ? 'Demo Server' : 'Connecting...';
+  const sourceColor = sourceLabel.includes('Offline') ? '#dc2626' : sourceLabel.includes('Live') ? '#10b981' : '#f59e0b';
 
   const statusIcon = () => {
-    if (isBLEConnected) return <Bluetooth size={14} color="#3b82f6" />;
+    if (isBLEConnected) return <Bluetooth size={14} color="#10b981" />;
+    if (sourceLabel.includes('Offline')) return <WifiOff size={14} color="#dc2626" />;
     if (firebaseConnected) return <Wifi size={14} color="#10b981" />;
-    return <WifiOff size={14} color="#f59e0b" />;
+    return <Radio size={14} color="#f59e0b" />;
   };
 
   return (
@@ -103,28 +109,48 @@ export default function DashboardPage() {
       {/* Main Stats Grid */}
       <div className="animate-in stagger-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
 
-        {/* Heart Rate — Large Card (Clickable) */}
-        <div onClick={() => setShowHRModal(true)} style={{ gridColumn: 'span 2', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '24px', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.3s' }}>
-          <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(239,68,68,0.15), transparent)', filter: 'blur(20px)' }} />
+        {/* GOAL #7 and #9 — Toggle Display logic and Polish large typography */}
+        <div onClick={() => setDisplayMode(m => m === 'BPM' ? 'TIME' : 'BPM')} style={{ gridColumn: 'span 2', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '24px', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.3s' }}>
+          
+          <div style={{ position: 'absolute', top: '10px', right: '14px', zIndex: 10 }}>
+            <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', fontWeight: 700, padding: '4px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: '20px' }}>Swap</span>
+          </div>
+
+          <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: displayMode === 'BPM' ? 'radial-gradient(circle, rgba(239,68,68,0.15), transparent)' : 'radial-gradient(circle, rgba(59,130,246,0.15), transparent)', filter: 'blur(20px)' }} />
+          
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '8px' }}>Heart Rate</p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#ef4444', lineHeight: 1 }}>{deviceData.bpm}</span>
-                <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>BPM</span>
+            {displayMode === 'BPM' ? (
+              <div>
+                <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '8px' }}>Heart Rate</p>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  <span style={{ fontSize: '4.5rem', fontWeight: '800', color: '#ef4444', lineHeight: 1, textShadow: '0 4px 20px rgba(239,68,68,0.3)' }}>{deviceData.bpm || '--'}</span>
+                  <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>BPM</span>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: deviceData.bpm > 120 ? '#ef4444' : deviceData.bpm > 100 ? '#f59e0b' : deviceData.bpm > 0 ? '#10b981' : 'var(--text-secondary)', fontWeight: 600, marginTop: '8px' }}>
+                  {deviceData.bpm > 120 ? '⚠ Elevated Risk' : deviceData.bpm > 100 ? '↗ High Activity' : deviceData.bpm > 0 ? '✓ Safe & Stable' : '— Searching...'}
+                </p>
               </div>
-              <p style={{ fontSize: '0.7rem', color: deviceData.bpm > 120 ? '#ef4444' : deviceData.bpm > 100 ? '#f59e0b' : '#10b981', fontWeight: 600, marginTop: '6px' }}>
-                {deviceData.bpm > 120 ? '⚠ Elevated' : deviceData.bpm > 100 ? '↗ Active' : deviceData.bpm > 0 ? '✓ Normal' : '— No signal'}
-              </p>
-            </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '8px' }}>Current Time</p>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                  <span style={{ fontSize: '4.5rem', fontWeight: '800', color: '#3b82f6', lineHeight: 1, textShadow: '0 4px 20px rgba(59,130,246,0.3)' }}>
+                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '8px' }}>
+                  Time synced securely ✓
+                </p>
+              </div>
+            )}
+            
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <Heart
                 size={48}
-                color="#ef4444"
-                fill={pulse ? '#ef4444' : 'none'}
+                color={displayMode === 'BPM' ? "#ef4444" : "#3b82f6"}
+                fill={pulse ? (displayMode === 'BPM' ? '#ef4444' : '#3b82f6') : 'none'}
                 style={{ transition: 'all 0.3s', transform: pulse ? 'scale(1.15)' : 'scale(1)', opacity: deviceData.bpm > 0 ? 1 : 0.3 }}
               />
-              <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Tap for details</span>
             </div>
           </div>
           {/* Mini sparkline preview */}

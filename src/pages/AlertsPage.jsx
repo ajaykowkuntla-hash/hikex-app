@@ -32,12 +32,12 @@ export default function AlertsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {alerts.map((alert) => (
               <div key={alert.id} className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-                <div style={{ padding: '10px', borderRadius: '12px', background: alert.severity === 'high' ? 'var(--accent-rose-glow)' : 'var(--accent-amber-glow)' }}>
-                  <AlertTriangle size={20} color={alert.severity === 'high' ? 'var(--accent-rose)' : 'var(--accent-amber)'} />
+                <div style={{ padding: '10px', borderRadius: '12px', background: alert.type === 'critical' ? 'var(--accent-rose-glow)' : 'var(--accent-amber-glow)' }}>
+                  <AlertTriangle size={20} color={alert.type === 'critical' ? 'var(--accent-rose)' : 'var(--accent-amber)'} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                     <h4 className="font-bold text-white text-sm">{alert.type}</h4>
+                     <h4 className="font-bold text-white text-sm">{alert.title || alert.type}</h4>
                      <span className="text-xs text-muted">{new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <p className="text-sm text-muted">{alert.message}</p>

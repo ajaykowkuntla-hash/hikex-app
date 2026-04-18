@@ -6,6 +6,19 @@ export default function HikingHistoryPage() {
   const navigate = useNavigate();
   const hikes = getHikingHistory();
 
+  const totalKm = hikes.reduce((sum, h) => sum + parseFloat(h.distance), 0).toFixed(1);
+  const totalMins = hikes.reduce((sum, h) => {
+    const match = h.duration.match(/(\d+)h\s*(\d+)m/);
+    if (match) {
+      const [h_, m_] = match.slice(1).map(Number);
+      return sum + h_ * 60 + m_;
+    }
+    return sum;
+  }, 0);
+  const totalHours = Math.floor(totalMins / 60);
+  const remMins = totalMins % 60;
+  const totalTime = remMins > 0 ? `${totalHours}h ${remMins}m` : `${totalHours}h`;
+
   return (
     <div className="page-container">
       <header className="mb-6 flex justify-between items-center animate-in stagger-1">
@@ -23,11 +36,11 @@ export default function HikingHistoryPage() {
       {/* Summary Stats */}
       <div className="sensor-grid animate-in stagger-2" style={{ marginBottom: '24px' }}>
         <div className="sensor-card text-center" style={{ padding: '24px 16px' }}>
-          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-primary)]">68.5</div>
+          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-primary)]">{totalKm}</div>
           <div className="text-xs text-muted uppercase tracking-widest font-semibold">Total km</div>
         </div>
         <div className="sensor-card text-center" style={{ padding: '24px 16px' }}>
-          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-emerald)]">35h</div>
+          <div className="font-display font-bold text-3xl mb-1 text-[var(--accent-emerald)]">{totalTime}</div>
           <div className="text-xs text-muted uppercase tracking-widest font-semibold">Total Time</div>
         </div>
       </div>

@@ -5,8 +5,6 @@ import { Fingerprint, Lock, ShieldAlert } from 'lucide-react';
 export default function LoginPage() {
   const { login } = useApp();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -49,28 +47,9 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="input-group" style={{ marginBottom: '32px' }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span className="text-secondary" style={{ fontSize: '0.875rem' }}>Passcode</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', cursor: 'pointer' }}>Bypass protocol?</span>
-             </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              required
-              placeholder="••••••••"
-              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
+          <div style={{ background: 'rgba(34, 211, 238, 0.1)', border: '1px solid rgba(34, 211, 238, 0.3)', borderRadius: '8px', padding: '12px', marginBottom: '24px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600 }}>DEMO MODE: Any credentials accepted.</span>
           </div>
-
-          {error && (
-            <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '12px', marginBottom: '24px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-               <ShieldAlert size={16} color="var(--accent-rose)" />
-               <span style={{ fontSize: '0.75rem', color: 'var(--accent-rose)', fontWeight: 500 }}>{error}</span>
-            </div>
-          )}
 
           <button type="submit" className="btn btn-primary btn-full" style={{ padding: '16px' }}>
             <Lock size={18} /> Authenticate

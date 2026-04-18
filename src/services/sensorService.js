@@ -1,4 +1,4 @@
-import { db, ref, onValue, off, set, push, get } from './firebase';
+import { db, ref, onValue, off, set, push } from './firebase';
 
 // Subscribe to real-time sensor data from Firebase
 export function subscribeSensorData(callback) {
@@ -57,6 +57,13 @@ export function subscribeDeviceStatus(callback) {
     callback(!!snapshot.val());
   });
   return () => off(statusRef);
+}
+
+// Track client connection to Firebase servers
+export function subscribeConnectionStatus(callback) {
+  const connectedRef = ref(db, '.info/connected');
+  onValue(connectedRef, (snap) => callback(snap.val() === true));
+  return () => off(connectedRef);
 }
 
 // Update user profile in Firebase

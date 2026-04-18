@@ -75,6 +75,10 @@ class BLEService {
   // Subscribe to BLE notifications for real-time data
   async _subscribeToNotifications() {
     if (!this.server) return;
+    if (this._pollInterval) {
+      clearInterval(this._pollInterval);
+      this._pollInterval = null;
+    }
 
     try {
       // Try custom HIKEX service first

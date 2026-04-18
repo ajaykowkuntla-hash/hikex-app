@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { generateSensorData, getDemoAlerts } from '../services/demoData';
-import { subscribeSensorData } from '../services/sensorService';
+import { subscribeSensorData, subscribeConnectionStatus } from '../services/sensorService';
+import { db, ref, set } from '../services/firebase';
 import bleService from '../services/bleService';
 
 const AppContext = createContext(null);
@@ -104,6 +105,27 @@ export function AppProvider({ children }) {
   const [firebaseConnected, setFirebaseConnected] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
+  const [isDeviceOffline, setIsDeviceOffline] = useState(false);
+  const [isFirebaseOnline, setIsFirebaseOnline] = useState(true);
+
+  // EMA Data Smoothing (GOAL #3 and #4)
+  const applySmoothing = useCallback((prev, norm) => {
+    if (!norm) return null;
+    if (!prev || prev.bpm === 0) return norm; 
+    
+    // Alphas (smoothing factors): Lower = smoother but slower response
+    const alphaHR = 0.3; 
+    const alphaBat = 0.1;
+
+    // GOAL #3 - Battery Clamp
+    const clampedBat = Math.max(0, Math.min(100, norm.battery || 0));
+    
+    // EMA smoothing
+    const smoothedBpm = Math.round((norm.bpm * alphaHR) + (prev.bpm * (1 - alphaHR)));
+    const smoothedBat = Math.round((clampedBat * alphaBat) + ((prev.battery || 100) * (1 - alphaBat)));
+
+    return { ...norm, bpm: smoothedBpm, battery: smoothedBat, heartRate: smoothedBpm };
+  }, []);
 
   const [alerts, setAlerts] = useState(() => getDemoAlerts());
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('hikex_darkmode') === 'true');
@@ -119,6 +141,7 @@ export function AppProvider({ children }) {
 
   const demoIntervalRef = useRef(null);
   const stalenessTimerRef = useRef(null);
+  const sosAlertFiredRef = useRef(false);
 
   // ===== BLE INTEGRATION =====
   const connectBLE = useCallback(async () => {
@@ -150,15 +173,20 @@ export function AppProvider({ children }) {
     const unsub = bleService.onData((data) => {
       const normalized = normalizeDeviceData(data);
       if (normalized) {
-        setDeviceData(normalized);
-        setSensorData(normalized);
+        setDeviceData(prev => applySmoothing(prev, normalized));
+        setSensorData(prev => applySmoothing(prev, normalized));
+        setIsDeviceOffline(false);
       }
     });
     return unsub;
-  }, []);
+  }, [applySmoothing]);
 
   // ===== FIREBASE INTEGRATION — background sync =====
   useEffect(() => {
+    const unsubConnection = subscribeConnectionStatus(status => {
+      setIsFirebaseOnline(status);
+    });
+
     const unsubscribe = subscribeSensorData((data) => {
       setFirebaseConnected(true);
       setIsConnected(true);
@@ -168,26 +196,28 @@ export function AppProvider({ children }) {
         const normalized = normalizeDeviceData(data);
         if (normalized) {
           normalized.source = 'firebase';
-          setDeviceData(normalized);
-          setSensorData(normalized);
+          setDeviceData(prev => applySmoothing(prev, normalized));
+          setSensorData(prev => applySmoothing(prev, normalized));
+          setIsDeviceOffline(false);
         }
       }
 
-      // Reset staleness timer
+      // Reset staleness timer (GOAL #2)
       if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
       stalenessTimerRef.current = setTimeout(() => {
+        setIsDeviceOffline(true);
         if (bleStatus !== 'connected') {
-          setFirebaseConnected(false);
           setIsConnected(false);
         }
-      }, 15000);
+      }, 10000); // 10 second strict dropout bound
     });
 
     return () => {
       unsubscribe();
+      unsubConnection();
       if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
     };
-  }, [bleStatus]);
+  }, [bleStatus, applySmoothing]);
 
   // ===== DEMO MODE FALLBACK — only when nothing is live =====
   useEffect(() => {
@@ -215,14 +245,18 @@ export function AppProvider({ children }) {
     }
   }, [isDemoMode, bleStatus, firebaseConnected]);
 
-  // ===== SOS DETECTION =====
+  // ===== SOS DETECTION (BUG 4 FIX: deduplicated) =====
   useEffect(() => {
-    if (deviceData.sos) {
+    if (deviceData.sos && !sosAlertFiredRef.current) {
+      sosAlertFiredRef.current = true;
       addAlert({
         type: 'critical',
         title: '🚨 EMERGENCY SOS ACTIVATED',
         message: `SOS triggered at ${deviceData.lat.toFixed(4)}, ${deviceData.lng.toFixed(4)}. Contacting emergency services.`,
       });
+    } else if (!deviceData.sos) {
+      // Reset the flag when SOS is cleared so future SOS events can trigger again
+      sosAlertFiredRef.current = false;
     }
   }, [deviceData.sos]);
 
@@ -255,8 +289,16 @@ export function AppProvider({ children }) {
     setAlerts(prev => [{ ...alert, id: Date.now(), timestamp: Date.now() }, ...prev]);
   }, []);
 
-  const clearWarning = useCallback(() => {
+  const clearWarning = useCallback(async () => {
+    // Update local state immediately
     setDeviceData(prev => ({ ...prev, sos: false, lowBattery: false }));
+    // BUG 5 FIX: Also write back to Firebase so the next push doesn't restore the old values
+    try {
+      const sensorRef = ref(db, 'sensorData');
+      await set(sensorRef, { sos: false, lowBattery: false });
+    } catch (err) {
+      console.error('Failed to clear warning in Firebase:', err);
+    }
   }, []);
 
   const value = {
@@ -265,6 +307,8 @@ export function AppProvider({ children }) {
     deviceData,
     bleStatus,
     firebaseConnected,
+    isFirebaseOnline,
+    isDeviceOffline,
     connectBLE,
     disconnectBLE,
     clearWarning,

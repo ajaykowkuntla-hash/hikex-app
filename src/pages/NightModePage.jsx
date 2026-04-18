@@ -7,13 +7,18 @@ export default function NightModePage() {
   const canvasRef = useRef(null);
   const videoRef = useRef(null);
   const [heading, setHeading] = useState(0);
-  const [activeStar, setActiveStar] = useState(null);
 
   useEffect(() => {
+    let mountedRef = { current: true };
+
     // Request AR Camera Feed
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(stream => {
+          if (!mountedRef.current) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+          }
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
@@ -108,12 +113,12 @@ export default function NightModePage() {
     resizeCanvas();
 
     // Rotate heading slowly for mock effect if no compass
-    let t = 0;
     const interval = setInterval(() => {
       setHeading(h => (h + 0.1) % 360);
     }, 50);
 
     return () => {
+      mountedRef.current = false;
       window.removeEventListener('resize', resizeCanvas);
       clearInterval(interval);
       if (videoRef.current && videoRef.current.srcObject) {

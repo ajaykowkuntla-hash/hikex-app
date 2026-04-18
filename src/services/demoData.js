@@ -1,7 +1,7 @@
 // Realistic simulated sensor data for HIKEX demo mode
 
 const trekkingPath = [
-  { lat: 45.9763, lng: 7.6586, name: 'Matterhorn Base (Start)', elevation: 3260 },
+  { lat: 28.5950, lng: 83.9300, name: 'Nayapul (Start)', elevation: 1070 },
   { lat: 28.6012, lng: 83.9345, name: 'Deurali Pass', elevation: 3100 },
   { lat: 28.6065, lng: 83.9402, name: 'Forest Camp', elevation: 3200 },
   { lat: 28.6110, lng: 83.9450, name: 'Rest Hut', elevation: 3350 },

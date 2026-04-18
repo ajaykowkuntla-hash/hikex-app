@@ -77,7 +77,7 @@ export default function DevicePage() {
               </div>
               <div>
                 <p className="font-bold text-white text-sm">Heart Rate</p>
-                <p className="text-xs text-muted">{connected ? `${sensorData?.hr || 0} BPM` : 'Offline'}</p>
+                <p className="text-xs text-muted">{connected ? `${sensorData?.bpm || sensorData?.heartRate || 0} BPM` : 'Offline'}</p>
               </div>
            </div>
 
