@@ -56,6 +56,7 @@ export default function MedicalIDPage() {
           value={formData[field] || ''}
           onChange={(e) => handleChange(field, e.target.value)}
           placeholder={placeholder || ''}
+          maxLength={250}
           onFocus={(e) => { e.target.style.borderColor = 'var(--accent-primary)'; e.target.style.background = 'rgba(255,255,255,0.08)'; }}
           onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.15)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
         />
@@ -74,6 +75,7 @@ export default function MedicalIDPage() {
           value={formData[parent]?.[field] || ''}
           onChange={(e) => handleNestedChange(parent, field, e.target.value)}
           placeholder={placeholder || ''}
+          maxLength={250}
           onFocus={(e) => { e.target.style.borderColor = 'var(--accent-primary)'; e.target.style.background = 'rgba(255,255,255,0.08)'; }}
           onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.15)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
         />

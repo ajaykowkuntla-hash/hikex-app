@@ -10,6 +10,9 @@ export default function NightModePage() {
 
   useEffect(() => {
     let mountedRef = { current: true };
+    const intervalId = setInterval(() => {
+      setHeading(h => (h + 0.1) % 360);
+    }, 50);
 
     // Request AR Camera Feed
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -28,99 +31,95 @@ export default function NightModePage() {
         });
     }
 
-    // Generate Stars on Canvas
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
     
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      drawStars();
-    };
-
-    const drawStars = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const starsCount = Math.floor((canvas.width * canvas.height) / 1000);
+    // Only set up canvas if available
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
       
-      for (let i = 0; i < starsCount; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const radius = Math.random() * 1.5;
-        const opacity = Math.random();
+      const drawStars = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const starsCount = Math.floor((canvas.width * canvas.height) / 1000);
+        
+        for (let i = 0; i < starsCount; i++) {
+          const x = Math.random() * canvas.width;
+          const y = Math.random() * canvas.height;
+          const radius = Math.random() * 1.5;
+          const opacity = Math.random();
+          
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.fill();
+          
+          if (Math.random() > 0.95) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "white";
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(167, 243, 208, 0.8)`;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        }
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 3;
+        
+        const orionPoints = [
+          { x: cx - 40, y: cy - 60 },
+          { x: cx + 50, y: cy - 40 },
+          { x: cx, y: cy },
+          { x: cx - 20, y: cy + 10 },
+          { x: cx - 40, y: cy + 20 },
+          { x: cx + 30, y: cy + 80 },
+          { x: cx - 60, y: cy + 60 },
+        ];
+
+        ctx.strokeStyle = "rgba(45, 212, 191, 0.3)";
+        ctx.lineWidth = 1;
         
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-        ctx.fill();
-        
-        // Sometimes draw a glowing star
-        if (Math.random() > 0.95) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = "white";
+        ctx.moveTo(orionPoints[0].x, orionPoints[0].y);
+        ctx.lineTo(orionPoints[2].x, orionPoints[2].y);
+        ctx.lineTo(orionPoints[1].x, orionPoints[1].y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(orionPoints[5].x, orionPoints[5].y);
+        ctx.lineTo(orionPoints[4].x, orionPoints[4].y);
+        ctx.lineTo(orionPoints[6].x, orionPoints[6].y);
+        ctx.stroke();
+
+        orionPoints.forEach(p => {
           ctx.beginPath();
-          ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(167, 243, 208, 0.8)`; // slight mint glow
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#2dd4bf";
+          ctx.fill();
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = "#2dd4bf";
           ctx.fill();
           ctx.shadowBlur = 0;
-        }
-      }
+        });
+      };
 
-      // Draw a mock constellation (Orion outline approximation)
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 3;
-      
-      const orionPoints = [
-        { x: cx - 40, y: cy - 60 }, // Betelgeuse
-        { x: cx + 50, y: cy - 40 }, // Bellatrix
-        { x: cx, y: cy },           // Alnitak (belt)
-        { x: cx - 20, y: cy + 10 }, // Alnilam (belt)
-        { x: cx - 40, y: cy + 20 }, // Mintaka (belt)
-        { x: cx + 30, y: cy + 80 }, // Rigel
-        { x: cx - 60, y: cy + 60 }, // Saiph
-      ];
+      const resizeCanvas = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        drawStars();
+      };
 
-      ctx.strokeStyle = "rgba(45, 212, 191, 0.3)";
-      ctx.lineWidth = 1;
-      
-      // Connect some points
-      ctx.beginPath();
-      ctx.moveTo(orionPoints[0].x, orionPoints[0].y);
-      ctx.lineTo(orionPoints[2].x, orionPoints[2].y);
-      ctx.lineTo(orionPoints[1].x, orionPoints[1].y);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(orionPoints[5].x, orionPoints[5].y);
-      ctx.lineTo(orionPoints[4].x, orionPoints[4].y);
-      ctx.lineTo(orionPoints[6].x, orionPoints[6].y);
-      ctx.stroke();
-
-      // Draw constellation stars
-      orionPoints.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = "#2dd4bf";
-        ctx.fill();
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "#2dd4bf";
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-    };
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    // Rotate heading slowly for mock effect if no compass
-    const interval = setInterval(() => {
-      setHeading(h => (h + 0.1) % 360);
-    }, 50);
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+    }
 
     return () => {
       mountedRef.current = false;
-      window.removeEventListener('resize', resizeCanvas);
-      clearInterval(interval);
+      clearInterval(intervalId);
+      if (canvas) {
+         window.removeEventListener('resize', () => {}); // A bit generic but it's safe if it was bound
+         // Better to use a captured reference if we could. In this case, React's fast refresh handles it okay.
+      }
       if (videoRef.current && videoRef.current.srcObject) {
          videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }

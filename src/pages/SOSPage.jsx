@@ -45,9 +45,11 @@ export default function SOSPage() {
   useEffect(() => {
     let timer;
     if (status === 'WARNING' && countdown > 0) {
-      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      timer = setTimeout(() => setCountdown(c => Math.max(0, c - 1)), 1000);
     } else if (status === 'WARNING' && countdown === 0) {
-      setTimeout(() => executeSOS(), 0);
+      setTimeout(() => {
+        setStatus(s => { if (s === 'WARNING') { executeSOS(); } return s; });
+      }, 0);
     }
     return () => clearTimeout(timer);
   }, [countdown, status, executeSOS]);

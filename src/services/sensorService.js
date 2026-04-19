@@ -2,18 +2,53 @@ import { db, ref, onValue, off, set, push } from './firebase';
 
 // Subscribe to real-time sensor data from Firebase
 export function subscribeSensorData(callback) {
-  const sensorRef = ref(db, 'sensorData');
-  onValue(sensorRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      callback(data);
-    }
-  }, (error) => {
-    console.error('Firebase sensor subscription error:', error);
+  let combinedData = {
+    bpm: null,
+    battery: null,
+    lowBattery: false,
+    lat: null,
+    lng: null,
+    sos: false,
+    gpsReady: 'Searching',
+    firebaseStatus: 'Offline',
+    timestamp: Date.now()
+  };
+
+  const notify = () => {
+    callback({
+      bpm: combinedData.bpm,
+      battery: combinedData.battery,
+      lowBattery: combinedData.lowBattery,
+      lat: combinedData.lat,
+      lng: combinedData.lng,
+      sos: combinedData.sos,
+      gpsReady: combinedData.gpsReady === 'Connected',
+      firebaseStatus: combinedData.firebaseStatus,
+      timestamp: combinedData.timestamp || Date.now()
+    });
+  };
+
+  const paths = [
+    { p: 'health/bpm', key: 'bpm' },
+    { p: 'battery', key: 'battery' },
+    { p: 'low_battery', key: 'lowBattery' },
+    { p: 'gps/lat', key: 'lat' },
+    { p: 'gps/lng', key: 'lng' },
+    { p: 'sos', key: 'sos' },
+    { p: 'status/gps', key: 'gpsReady' },
+    { p: 'status/firebase', key: 'firebaseStatus' },
+    { p: 'last_seen', key: 'timestamp' }
+  ];
+
+  const unsubs = paths.map(({ p, key }) => {
+    const r = ref(db, p);
+    return onValue(r, (snapshot) => {
+      combinedData[key] = snapshot.val();
+      notify();
+    });
   });
 
-  // Return unsubscribe function
-  return () => off(sensorRef);
+  return () => unsubs.forEach(unsub => unsub());
 }
 
 // Send SOS alert to Firebase
@@ -53,17 +88,17 @@ export async function triggerHardwareControl(node, state) {
 // Subscribe to hardware connection status directly from Firebase
 export function subscribeDeviceStatus(callback) {
   const statusRef = ref(db, 'deviceStatus/isOnline');
-  onValue(statusRef, (snapshot) => {
+  const unsub = onValue(statusRef, (snapshot) => {
     callback(!!snapshot.val());
   });
-  return () => off(statusRef);
+  return () => unsub();
 }
 
 // Track client connection to Firebase servers
 export function subscribeConnectionStatus(callback) {
   const connectedRef = ref(db, '.info/connected');
-  onValue(connectedRef, (snap) => callback(snap.val() === true));
-  return () => off(connectedRef);
+  const unsub = onValue(connectedRef, (snap) => callback(snap.val() === true));
+  return () => unsub();
 }
 
 // Update user profile in Firebase
@@ -84,7 +119,7 @@ export async function updateUserProfile(userId, profileData) {
 // Subscribe to alerts from Firebase
 export function subscribeAlerts(callback) {
   const alertsRef = ref(db, 'alerts');
-  onValue(alertsRef, (snapshot) => {
+  const unsub = onValue(alertsRef, (snapshot) => {
     const data = snapshot.val();
     if (data) {
       const alertsList = Object.entries(data).map(([key, value]) => ({
@@ -95,7 +130,7 @@ export function subscribeAlerts(callback) {
     }
   });
 
-  return () => off(alertsRef);
+  return () => unsub();
 }
 
 // Write sensor data to Firebase (for simulation)

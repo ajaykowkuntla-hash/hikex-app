@@ -99,7 +99,7 @@ export default function DevicePage() {
               </div>
               <div>
                 <p className="font-bold text-white text-sm">Battery</p>
-                <p className="text-xs text-[var(--accent-teal)] font-bold">{connected ? '94%' : '--'}</p>
+                <p className="text-xs text-[var(--accent-teal)] font-bold">{connected ? `${sensorData?.battery ?? 0}%` : '--'}</p>
               </div>
            </div>
         </div>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AlertTriangle, MapPin } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import BottomNav from './components/BottomNav';
@@ -105,12 +105,44 @@ function AppLayout() {
   );
 }
 
+import React from 'react';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error, info) {
+    console.error('Core Application Error Caught:', error, info);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#09090b', color: '#fff' }}>
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', padding: '30px', borderRadius: '16px', textAlign: 'center', maxWidth: '400px' }}>
+            <h1 style={{ fontSize: '1.5rem', color: '#f87171', marginBottom: '10px' }}>System Crash Detected</h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginBottom: '20px' }}>{this.state.error?.message || 'An unexpected runtime error occurred.'}</p>
+            <button onClick={() => window.location.reload()} style={{ padding: '12px 24px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '100px', fontWeight: 'bold', cursor: 'pointer' }}>Reboot Application</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <ErrorBoundary>
       <AppProvider>
         <AppLayout />
       </AppProvider>
-    </BrowserRouter>
+    </ErrorBoundary>
   );
 }

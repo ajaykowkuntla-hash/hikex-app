@@ -12,18 +12,35 @@ export default function DashboardPage() {
   const [connectError, setConnectError] = useState(null);
   const [pulse, setPulse] = useState(false);
   const [showHRModal, setShowHRModal] = useState(false);
-  const [displayMode, setDisplayMode] = useState('BPM'); // 'BPM' or 'TIME'
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [bpmHistory, setBpmHistory] = useState([]);
+  const [uiClearSOS, setUiClearSOS] = useState(false);
+  const [secondsAgo, setSecondsAgo] = useState(0);
 
-  // Pulse animation for heart and current time tracker
+  // Pulse animation for heart tracker
   useEffect(() => {
     const interval = setInterval(() => {
       setPulse(p => !p);
-      setCurrentTime(new Date());
     }, 800);
     return () => clearInterval(interval);
   }, []);
+
+  // Last update timer calculation
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (deviceData.timestamp) {
+        const diff = Math.floor((Date.now() - deviceData.timestamp) / 1000);
+        setSecondsAgo(diff);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [deviceData.timestamp]);
+
+  // Reset UI clear if SOS turns on again
+  useEffect(() => {
+    if (deviceData.sos) {
+      setUiClearSOS(false);
+    }
+  }, [deviceData.sos]);
 
   // Collect BPM history
   useEffect(() => {
@@ -76,10 +93,13 @@ export default function DashboardPage() {
             <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: sourceColor }}>{sourceLabel}</span>
           </div>
         </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '600px', marginTop: '12px', lineHeight: 1.5 }}>
+          HIKEX is a real-time IoT wearable system that monitors heart rate and location, and provides emergency alerts for hikers. This system performs real-time monitoring. Future versions may include predictive analytics.
+        </p>
       </header>
 
       {/* SOS EMERGENCY BANNER */}
-      {deviceData.sos && (
+      {deviceData.sos && !uiClearSOS && (
         <div className="animate-in" style={{ background: 'linear-gradient(135deg, #dc2626, #991b1b)', borderRadius: '20px', padding: '20px', marginBottom: '20px', border: '2px solid #ef4444', boxShadow: '0 0 40px rgba(239,68,68,0.4)', animation: 'sosPulse 1.5s infinite' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
             <AlertTriangle size={28} color="#fff" />
@@ -88,9 +108,10 @@ export default function DashboardPage() {
               <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', margin: 0 }}>SOS signal active from device</p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => navigate('/sos')} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>View Emergency</button>
-            <button onClick={clearWarning} style={{ padding: '12px 20px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>Clear</button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <button onClick={() => navigate('/map')} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>View Map</button>
+            <button onClick={() => setUiClearSOS(true)} style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>Clear Warning (UI only)</button>
+            <button onClick={clearWarning} style={{ flex: '1 1 100%', padding: '12px 20px', background: '#fff', border: '1px solid #fff', borderRadius: '12px', color: '#dc2626', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>Acknowledge Emergency</button>
           </div>
         </div>
       )}
@@ -109,46 +130,30 @@ export default function DashboardPage() {
       {/* Main Stats Grid */}
       <div className="animate-in stagger-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
 
-        {/* GOAL #7 and #9 — Toggle Display logic and Polish large typography */}
-        <div onClick={() => setDisplayMode(m => m === 'BPM' ? 'TIME' : 'BPM')} style={{ gridColumn: 'span 2', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '24px', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.3s' }}>
+        {/* Large Heart Rate Typography */}
+        <div style={{ gridColumn: 'span 2', background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '24px', border: '1px solid var(--glass-border)', position: 'relative', overflow: 'hidden', transition: 'border-color 0.3s' }}>
           
-          <div style={{ position: 'absolute', top: '10px', right: '14px', zIndex: 10 }}>
-            <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', fontWeight: 700, padding: '4px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: '20px' }}>Swap</span>
-          </div>
-
-          <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: displayMode === 'BPM' ? 'radial-gradient(circle, rgba(239,68,68,0.15), transparent)' : 'radial-gradient(circle, rgba(59,130,246,0.15), transparent)', filter: 'blur(20px)' }} />
+          <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(239,68,68,0.15), transparent)', filter: 'blur(20px)' }} />
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            {displayMode === 'BPM' ? (
               <div>
                 <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '8px' }}>Heart Rate</p>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '4.5rem', fontWeight: '800', color: '#ef4444', lineHeight: 1, textShadow: '0 4px 20px rgba(239,68,68,0.3)' }}>{deviceData.bpm || '--'}</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', transition: 'all 0.3s ease-out' }}>
+                  <span style={{ fontSize: '4.5rem', fontWeight: '800', color: '#ef4444', lineHeight: 1, textShadow: '0 4px 20px rgba(239,68,68,0.3)' }}>
+                    {deviceData.bpm || '--'}
+                  </span>
                   <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>BPM</span>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: deviceData.bpm > 120 ? '#ef4444' : deviceData.bpm > 100 ? '#f59e0b' : deviceData.bpm > 0 ? '#10b981' : 'var(--text-secondary)', fontWeight: 600, marginTop: '8px' }}>
                   {deviceData.bpm > 120 ? '⚠ Elevated Risk' : deviceData.bpm > 100 ? '↗ High Activity' : deviceData.bpm > 0 ? '✓ Safe & Stable' : '— Searching...'}
                 </p>
               </div>
-            ) : (
-              <div>
-                <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, marginBottom: '8px' }}>Current Time</p>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '4.5rem', fontWeight: '800', color: '#3b82f6', lineHeight: 1, textShadow: '0 4px 20px rgba(59,130,246,0.3)' }}>
-                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '8px' }}>
-                  Time synced securely ✓
-                </p>
-              </div>
-            )}
             
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <Heart
                 size={48}
-                color={displayMode === 'BPM' ? "#ef4444" : "#3b82f6"}
-                fill={pulse ? (displayMode === 'BPM' ? '#ef4444' : '#3b82f6') : 'none'}
+                color="#ef4444"
+                fill={pulse ? '#ef4444' : 'none'}
                 style={{ transition: 'all 0.3s', transform: pulse ? 'scale(1.15)' : 'scale(1)', opacity: deviceData.bpm > 0 ? 1 : 0.3 }}
               />
             </div>
@@ -336,7 +341,12 @@ export default function DashboardPage() {
             <p style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, margin: 0 }}>Battery</p>
             <Battery size={18} color={deviceData.battery > 50 ? '#10b981' : deviceData.battery > 20 ? '#f59e0b' : '#ef4444'} />
           </div>
-          <span style={{ fontSize: '2rem', fontWeight: 'bold', color: deviceData.battery > 50 ? '#10b981' : deviceData.battery > 20 ? '#f59e0b' : '#ef4444', lineHeight: 1 }}>{deviceData.battery}%</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', transition: 'all 0.3s ease-out' }}>
+            <span style={{ fontSize: '2rem', fontWeight: 'bold', color: deviceData.battery > 50 ? '#10b981' : deviceData.battery > 20 ? '#f59e0b' : '#ef4444', lineHeight: 1 }}>
+              {deviceData.battery}
+            </span>
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: deviceData.battery > 50 ? '#10b981' : deviceData.battery > 20 ? '#f59e0b' : '#ef4444' }}>%</span>
+          </div>
           {/* Battery bar */}
           <div style={{ marginTop: '10px', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${deviceData.battery}%`, borderRadius: '3px', background: deviceData.battery > 50 ? '#10b981' : deviceData.battery > 20 ? '#f59e0b' : '#ef4444', transition: 'width 1s ease' }} />
@@ -344,28 +354,40 @@ export default function DashboardPage() {
         </div>
 
         {/* GPS Status */}
-        <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '20px', padding: '20px', border: '1px solid var(--glass-border)' }}>
+        <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '20px', padding: '20px', border: '1px solid var(--glass-border)', gridColumn: 'span 2' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <p style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, margin: 0 }}>GPS</p>
+            <p style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, margin: 0 }}>GPS Location</p>
             <MapPin size={18} color={deviceData.gpsReady ? '#10b981' : '#f59e0b'} />
           </div>
-          <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: deviceData.gpsReady ? '#10b981' : '#f59e0b', lineHeight: 1.2 }}>{deviceData.gpsReady ? 'Connected' : 'Searching...'}</span>
+          <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: deviceData.gpsReady ? '#10b981' : '#f59e0b', lineHeight: 1.2 }}>
+            {deviceData.gpsReady ? 'Connected 🟢' : 'Searching for GPS signal (go outdoors)...'}
+          </span>
           {deviceData.gpsReady && (
-            <p style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{deviceData.lat.toFixed(3)}, {deviceData.lng.toFixed(3)}</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', fontFamily: 'monospace' }}>
+              Lat: {deviceData.lat.toFixed(5)} , Lng: {deviceData.lng.toFixed(5)}
+            </p>
+          )}
+          {deviceData.gpsReady && (
+            <button 
+              onClick={() => window.open(`https://maps.google.com/?q=${deviceData.lat},${deviceData.lng}`, '_blank')}
+              style={{ marginTop: '14px', width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', color: '#3b82f6', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              Open in Maps
+            </button>
           )}
         </div>
 
         {/* Device Connection Status */}
         <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', borderRadius: '20px', padding: '20px', border: '1px solid var(--glass-border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <p style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, margin: 0 }}>Device</p>
+            <p style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-secondary)', fontWeight: 700, margin: 0 }}>Device Link</p>
             <Radio size={18} color={isBLEConnected ? '#3b82f6' : firebaseConnected ? '#10b981' : '#ef4444'} />
           </div>
-          <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: isBLEConnected ? '#3b82f6' : firebaseConnected ? '#10b981' : '#ef4444' }}>
-            {isBLEConnected ? 'BLE Active' : firebaseConnected ? 'Firebase' : 'Offline'}
+          <span style={{ fontSize: '1rem', fontWeight: 'bold', color: isBLEConnected ? '#3b82f6' : firebaseConnected ? '#10b981' : '#ef4444' }}>
+            {isBLEConnected ? 'BLE Connected 🟢' : firebaseConnected ? 'Cloud Sync Active 🟢' : 'Disconnected 🔴'}
           </span>
-          <p style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {isBLEConnected ? 'HIKEX_Device' : firebaseConnected ? 'Cloud sync' : 'No connection'}
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
+            {secondsAgo > 0 ? `Last updated: ${secondsAgo} seconds ago` : 'Updated just now'}
           </p>
         </div>
 

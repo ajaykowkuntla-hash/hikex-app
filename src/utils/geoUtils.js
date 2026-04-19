@@ -28,17 +28,59 @@ export function routeDistance(route) {
 // Distance from a point to the nearest segment on a route.
 // Returns { index, distance, nearestPoint }
 export function nearestPointOnRoute(point, route) {
+  if (!route || route.length === 0) return null;
+  if (route.length === 1) return { index: 0, distance: haversineDistance(point, route[0]), nearestPoint: route[0] };
+
   let minDist = Infinity;
   let bestIdx = 0;
   let bestPoint = route[0];
 
-  for (let i = 0; i < route.length; i++) {
-    const d = haversineDistance(point, route[i]);
+  const toRad = (d) => d * Math.PI / 180;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const A = route[i];
+    const B = route[i + 1];
+    const P = point;
+
+    // Approximate flat earth projection at this latitude
+    const latCos = Math.cos(toRad(A[1]));
+    
+    // Convert to relative Cartesian-like coordinates (in degrees)
+    const px = (P[0] - A[0]) * latCos;
+    const py = P[1] - A[1];
+    
+    const bx = (B[0] - A[0]) * latCos;
+    const by = B[1] - A[1];
+    
+    // Segment length squared
+    const l2 = bx * bx + by * by;
+    
+    let t = 0;
+    if (l2 !== 0) {
+      // Dot product projection
+      t = Math.max(0, Math.min(1, (px * bx + py * by) / l2));
+    }
+    
+    // Nearest point on segment M
+    const mLng = A[0] + t * (B[0] - A[0]);
+    const mLat = A[1] + t * (B[1] - A[1]);
+    const M = [mLng, mLat];
+    
+    const d = haversineDistance(P, M);
+    
     if (d < minDist) {
       minDist = d;
       bestIdx = i;
-      bestPoint = route[i];
+      bestPoint = M;
     }
+  }
+
+  // Also check the very last point
+  const lastD = haversineDistance(point, route[route.length - 1]);
+  if (lastD < minDist) {
+    minDist = lastD;
+    bestIdx = route.length - 1;
+    bestPoint = route[route.length - 1];
   }
 
   return { index: bestIdx, distance: minDist, nearestPoint: bestPoint };
@@ -76,7 +118,10 @@ export function formatDuration(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = Math.floor(totalSeconds % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  if (h > 0) {
+    const formattedH = h > 99 ? h : String(h).padStart(2, '0');
+    return `${formattedH}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 

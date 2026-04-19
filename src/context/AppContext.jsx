@@ -142,6 +142,9 @@ export function AppProvider({ children }) {
   const demoIntervalRef = useRef(null);
   const stalenessTimerRef = useRef(null);
   const sosAlertFiredRef = useRef(false);
+  
+  const bleStatusRef = useRef(bleStatus);
+  useEffect(() => { bleStatusRef.current = bleStatus; }, [bleStatus]);
 
   // ===== BLE INTEGRATION =====
   const connectBLE = useCallback(async () => {
@@ -206,7 +209,7 @@ export function AppProvider({ children }) {
       if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
       stalenessTimerRef.current = setTimeout(() => {
         setIsDeviceOffline(true);
-        if (bleStatus !== 'connected') {
+        if (bleStatusRef.current !== 'connected') {
           setIsConnected(false);
         }
       }, 10000); // 10 second strict dropout bound
@@ -224,13 +227,13 @@ export function AppProvider({ children }) {
     if (isDemoMode && bleStatus !== 'connected' && !firebaseConnected) {
       setSensorData(generateSensorData()); // Seed
       const normalized = normalizeDeviceData(generateSensorData());
-      if (normalized) setDeviceData(normalized);
+      if (normalized) setDeviceData(prev => applySmoothing(prev, normalized));
 
       demoIntervalRef.current = setInterval(() => {
         const demoData = generateSensorData();
         setSensorData(demoData);
         const norm = normalizeDeviceData(demoData);
-        if (norm) setDeviceData(norm);
+        if (norm) setDeviceData(prev => applySmoothing(prev, norm));
       }, 3000);
 
       return () => {
@@ -271,7 +274,16 @@ export function AppProvider({ children }) {
     else localStorage.removeItem('hikex_user');
   }, [user]);
 
-  useEffect(() => { localStorage.setItem('hikex_medical', JSON.stringify(medicalID)); }, [medicalID]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('hikex_medical', JSON.stringify(medicalID));
+      } catch (e) {
+        console.error('Storage failed:', e);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [medicalID]);
   useEffect(() => { localStorage.setItem('hikex_profile', JSON.stringify(profile)); }, [profile]);
 
   const login = useCallback((userData) => {
@@ -292,10 +304,10 @@ export function AppProvider({ children }) {
   const clearWarning = useCallback(async () => {
     // Update local state immediately
     setDeviceData(prev => ({ ...prev, sos: false, lowBattery: false }));
-    // BUG 5 FIX: Also write back to Firebase so the next push doesn't restore the old values
+    // BUG 5 FIX: Write directly to paths used by ESP32 firmware
     try {
-      const sensorRef = ref(db, 'sensorData');
-      await set(sensorRef, { sos: false, lowBattery: false });
+      await set(ref(db, 'sos'), false);
+      await set(ref(db, 'low_battery'), false);
     } catch (err) {
       console.error('Failed to clear warning in Firebase:', err);
     }
