@@ -32,6 +32,7 @@ export default function NightModePage() {
     }
 
     const canvas = canvasRef.current;
+    let handleResize = null;
     
     // Only set up canvas if available
     if (canvas) {
@@ -109,16 +110,16 @@ export default function NightModePage() {
         drawStars();
       };
 
-      window.addEventListener('resize', resizeCanvas);
-      resizeCanvas();
+      handleResize = resizeCanvas;
+      window.addEventListener('resize', handleResize);
+      handleResize();
     }
 
     return () => {
       mountedRef.current = false;
       clearInterval(intervalId);
-      if (canvas) {
-         window.removeEventListener('resize', () => {}); // A bit generic but it's safe if it was bound
-         // Better to use a captured reference if we could. In this case, React's fast refresh handles it okay.
+      if (handleResize) {
+         window.removeEventListener('resize', handleResize);
       }
       if (videoRef.current && videoRef.current.srcObject) {
          videoRef.current.srcObject.getTracks().forEach(track => track.stop());
