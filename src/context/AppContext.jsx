@@ -55,6 +55,8 @@ function normalizeDeviceData(raw) {
       motion: raw.motion ?? null,
       riskLevel: raw.riskLevel ?? null,
       elevation: raw.elevation ?? null,
+      altitude: raw.altitude ?? null,
+      imu: raw.imu ?? { x: null, y: null, z: null },
       gps: raw.gps ?? { lat: raw.lat ?? 17.385, lng: raw.lng ?? 78.486 },
     };
   }
@@ -78,6 +80,8 @@ function normalizeDeviceData(raw) {
       motion: raw.motion,
       riskLevel: raw.riskLevel,
       elevation: raw.elevation,
+      altitude: raw.altitude ?? null,
+      imu: raw.imu ?? { x: null, y: null, z: null },
       gps: raw.gps,
     };
   }
@@ -306,8 +310,8 @@ export function AppProvider({ children }) {
     setDeviceData(prev => ({ ...prev, sos: false, lowBattery: false }));
     // BUG 5 FIX: Write directly to paths used by ESP32 firmware
     try {
-      await set(ref(db, 'sos'), false);
-      await set(ref(db, 'low_battery'), false);
+      await set(ref(db, 'devices/device_001/sos'), false);
+      await set(ref(db, 'devices/device_001/low_battery'), false);
     } catch (err) {
       console.error('Failed to clear warning in Firebase:', err);
     }

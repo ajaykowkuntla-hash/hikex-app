@@ -2,53 +2,46 @@ import { db, ref, onValue, off, set, push } from './firebase';
 
 // Subscribe to real-time sensor data from Firebase
 export function subscribeSensorData(callback) {
-  let combinedData = {
-    bpm: null,
-    battery: null,
-    lowBattery: false,
-    lat: null,
-    lng: null,
-    sos: false,
-    gpsReady: 'Searching',
-    firebaseStatus: 'Offline',
-    timestamp: Date.now()
-  };
+  const deviceRef = ref(db, 'devices/device_001');
 
-  const notify = () => {
+  const unsub = onValue(deviceRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) {
+      // Fallback handling when data is null
+      callback({
+        bpm: 0,
+        battery: 0,
+        lowBattery: false,
+        lat: 0,
+        lng: 0,
+        sos: false,
+        gpsReady: false,
+        firebaseStatus: 'Offline',
+        timestamp: Date.now()
+      });
+      return;
+    }
+
     callback({
-      bpm: combinedData.bpm,
-      battery: combinedData.battery,
-      lowBattery: combinedData.lowBattery,
-      lat: combinedData.lat,
-      lng: combinedData.lng,
-      sos: combinedData.sos,
-      gpsReady: combinedData.gpsReady === 'Connected',
-      firebaseStatus: combinedData.firebaseStatus,
-      timestamp: combinedData.timestamp || Date.now()
-    });
-  };
-
-  const paths = [
-    { p: 'health/bpm', key: 'bpm' },
-    { p: 'battery', key: 'battery' },
-    { p: 'low_battery', key: 'lowBattery' },
-    { p: 'gps/lat', key: 'lat' },
-    { p: 'gps/lng', key: 'lng' },
-    { p: 'sos', key: 'sos' },
-    { p: 'status/gps', key: 'gpsReady' },
-    { p: 'status/firebase', key: 'firebaseStatus' },
-    { p: 'last_seen', key: 'timestamp' }
-  ];
-
-  const unsubs = paths.map(({ p, key }) => {
-    const r = ref(db, p);
-    return onValue(r, (snapshot) => {
-      combinedData[key] = snapshot.val();
-      notify();
+      bpm: data.health?.bpm ?? 0,
+      battery: data.battery ?? 0,
+      lowBattery: data.low_battery ?? false,
+      lat: data.gps?.lat ?? 0,
+      lng: data.gps?.lng ?? 0,
+      sos: data.sos ?? false,
+      gpsReady: data.status?.gps === 'Connected',
+      firebaseStatus: data.status?.firebase ?? 'Offline',
+      timestamp: data.last_seen || Date.now(),
+      altitude: data.altitude ?? null,
+      imu: {
+        x: data.imu?.x ?? null,
+        y: data.imu?.y ?? null,
+        z: data.imu?.z ?? null,
+      },
     });
   });
 
-  return () => unsubs.forEach(unsub => unsub());
+  return () => unsub();
 }
 
 // Send SOS alert to Firebase
@@ -76,7 +69,8 @@ export async function sendSOSAlert(alertData) {
 // Trigger specific hardware control state
 export async function triggerHardwareControl(node, state) {
   try {
-    const controlRef = ref(db, `controls/${node}`);
+    const path = node === 'buzzer' ? `controls/${node}` : `devices/device_001/controls/${node}`;
+    const controlRef = ref(db, path);
     await set(controlRef, state);
     return { success: true };
   } catch (error) {
@@ -87,7 +81,7 @@ export async function triggerHardwareControl(node, state) {
 
 // Subscribe to hardware connection status directly from Firebase
 export function subscribeDeviceStatus(callback) {
-  const statusRef = ref(db, 'deviceStatus/isOnline');
+  const statusRef = ref(db, 'devices/device_001/deviceStatus/isOnline');
   const unsub = onValue(statusRef, (snapshot) => {
     callback(!!snapshot.val());
   });
@@ -136,7 +130,7 @@ export function subscribeAlerts(callback) {
 // Write sensor data to Firebase (for simulation)
 export async function writeSensorData(data) {
   try {
-    const sensorRef = ref(db, 'sensorData');
+    const sensorRef = ref(db, 'devices/device_001/sensorData');
     await set(sensorRef, {
       ...data,
       timestamp: Date.now()
